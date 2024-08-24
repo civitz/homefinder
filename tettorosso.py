@@ -16,6 +16,7 @@ class Riscaldamento(Enum):
     CENTRALIZZATO = 2
 
 class Casetta(scrapy.Item):
+    titolo=scrapy.Field() 
     agenzia=scrapy.Field()
     url=scrapy.Field()
     descrizione=scrapy.Field()
@@ -28,8 +29,11 @@ class Casetta(scrapy.Item):
     riscaldamento=scrapy.Field()
     condizionatore=scrapy.Field()
     ascensore=scrapy.Field()
+    garage=scrapy.Field()
     arredato=scrapy.Field()
     anno=scrapy.Field()
+    note=scrapy.Field() 
+
 def tettorosso_extract_from_table(the_table: NavigableString, field_name, is_number: bool):
     field_text=the_table.find(text=field_name)
     if not field_text:
@@ -43,7 +47,7 @@ def tettorosso_extract_from_table(the_table: NavigableString, field_name, is_num
         if m:
             return int(m.group(1).replace(".",""))
     else:
-        return child.text\
+        return child.text
 
 class TettorossoSpider(scrapy.Spider):
     name = "tettorosso"
@@ -68,9 +72,10 @@ class TettorossoSpider(scrapy.Spider):
         item = Casetta()
         item['url'] = response.url
         item['agenzia'] = 'Tettorosso'
-        item['contratto']= Contratto.AFFITTO
+        item['contratto']= Contratto.VENDITA
 
         soup=BeautifulSoup(response.body, 'html.parser')
+        item['titolo'] = soup.find('title').string.replace(' | Tetto Rosso Immobiliare', '')
         carattdiv=soup.find(id="caratt")
         carattdiv.find(class_='property-d-table').replace_with()
         item['descrizione'] = carattdiv.text.strip()
@@ -84,12 +89,20 @@ class TettorossoSpider(scrapy.Spider):
         # parse elements from property-d-table
         soup=BeautifulSoup(response.body, 'html.parser')
         tabella=soup.find(id="caratt").find(class_='property-d-table').find('tbody')
-        print(tabella)
+        #print(tabella)
         item['prezzo'] = tettorosso_extract_from_table(the_table=tabella, field_name="Prezzo", is_number=True)
         item['piano'] = tettorosso_extract_from_table(the_table=tabella, field_name="Piano", is_number=False)
         item['mq'] = tettorosso_extract_from_table(the_table=tabella, field_name="Metri quadri", is_number=True)
         item['anno'] = tettorosso_extract_from_table(the_table=tabella, field_name="Anno di costruzione", is_number=True)
-
+        ambienti=tettorosso_extract_from_table(the_table=tabella, field_name="Ambienti", is_number=True)
+        if ambienti is not None and ambienti is not "":
+            item['garage'] = "garage" in ambienti
+        comfort=tettorosso_extract_from_table(the_table=tabella, field_name="Comfort", is_number=True)
+        if comfort is not None and comfort is not "":
+            item['ascensore'] = "ascensore" in comfort
+            item['condizionatore'] = "aria condizionata" in comfort or "condizionatore" in comfort
+            item['riscaldamento'] = Riscaldamento.AUTONOMO if "riscaldamento autonomo" in comfort else Riscaldamento.CENTRALIZZATO if "riscaldamento centralizzato" in comfort else None
+        item['note'] = f'Comfort: {comfort}; Ambienti: {ambienti}' 
         print(item)
         pass
 
