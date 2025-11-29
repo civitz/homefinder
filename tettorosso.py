@@ -102,7 +102,8 @@ class TettorossoSpider(scrapy.Spider):
             item['ascensore'] = "ascensore" in comfort
             item['condizionatore'] = "aria condizionata" in comfort or "condizionatore" in comfort
             item['riscaldamento'] = Riscaldamento.AUTONOMO if "riscaldamento autonomo" in comfort else Riscaldamento.CENTRALIZZATO if "riscaldamento centralizzato" in comfort else None
-        item['note'] = f'Comfort: {comfort}; Ambienti: {ambienti}' 
+        item['note'] = f'Comfort: {comfort}; Ambienti: {ambienti}'
+        yield item 
         print(item)
         pass
 
