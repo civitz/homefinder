@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}HomeFinder - Cerca Immobili{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Cerca Immobili</h1>
+        <p class="text-muted">Filtra gli immobili in base ai tuoi criteri</p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" action="/search" class="row g-3">
+            <div class="col-md-3">
+                <label for="contratto" class="form-label">Contratto</label>
+                <select class="form-select" id="contratto" name="contratto">
+                    <option value="">Tutti</option>
+                    <option value="VENDITA" {% if filters.contratto == 'VENDITA' %}selected{% endif %}>Vendita</option>
+                    <option value="AFFITTO" {% if filters.contratto == 'AFFITTO' %}selected{% endif %}>Affitto</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="prezzo_min" class="form-label">Prezzo Min (€)</label>
+                <input type="number" class="form-control" id="prezzo_min" name="prezzo_min" 
+                       value="{{ filters.prezzo_min if filters.prezzo_min else '' }}" placeholder="Min">
+            </div>
+            
+            <div class="col-md-2">
+                <label for="prezzo_max" class="form-label">Prezzo Max (€)</label>
+                <input type="number" class="form-control" id="prezzo_max" name="prezzo_max" 
+                       value="{{ filters.prezzo_max if filters.prezzo_max else '' }}" placeholder="Max">
+            </div>
+            
+            <div class="col-md-2">
+                <label for="mq_min" class="form-label">Metri Quadri Min</label>
+                <input type="number" class="form-control" id="mq_min" name="mq_min" 
+                       value="{{ filters.mq_min if filters.mq_min else '' }}" placeholder="m²">
+            </div>
+            
+            <div class="col-md-2">
+                <label for="locali_min" class="form-label">Locali Min</label>
+                <input type="number" class="form-control" id="locali_min" name="locali_min" 
+                       value="{{ filters.locali_min if filters.locali_min else '' }}" placeholder="Locali">
+            </div>
+            
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Cerca</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="mb-4">
+    <h3>Risultati: {{ total_results }}</h3>
+</div>
+
+{% if properties %}
+<div class="row">
+    {% for property in properties %}
+    <div class="col-md-6 mb-4">
+        <div class="card property-card h-100">
+            <div class="card-body">
+                <h5 class="card-title">{{ property.titolo }}</h5>
+                
+                {% if property.contratto == 'VENDITA' %}
+                <span class="badge bg-success mb-2">VENDITA</span>
+                {% elif property.contratto == 'AFFITTO' %}
+                <span class="badge bg-primary mb-2">AFFITTO</span>
+                {% endif %}
+                
+                <p class="property-price mb-2">
+                    {% if property.prezzo %}
+                    € {{ "{:,}".format(property.prezzo) }}
+                    {% else %}
+                    Prezzo non disponibile
+                    {% endif %}
+                </p>
+                
+                <div class="property-feature mb-2">
+                    {% if property.mq %}
+                    <span class="me-2"><i class="bi bi-house"></i> {{ property.mq }} m²</span>
+                    {% endif %}
+                    {% if property.locali %}
+                    <span class="me-2"><i class="bi bi-door-open"></i> {{ property.locali }} locali</span>
+                    {% endif %}
+                </div>
+                
+                <div class="property-feature mb-3">
+                    {% if property.piano %}
+                    <span class="me-2"><i class="bi bi-building"></i> {{ property.piano }}</span>
+                    {% endif %}
+                    {% if property.classe %}
+                    <span class="me-2"><i class="bi bi-energy"></i> Classe {{ property.classe }}</span>
+                    {% endif %}
+                </div>
+                
+                <p class="card-text text-truncate">{{ property.descrizione|truncate(100) }}</p>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a href="/property/{{ property.id }}" class="btn btn-sm btn-outline-primary">Dettagli</a>
+                <span class="text-muted float-end">{{ property.scrape_date[:10] }}</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">Nessun immobile trovato con i criteri selezionati.</div>
+{% endif %}
+{% endblock %}

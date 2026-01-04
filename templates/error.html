@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}HomeFinder - Errore{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 text-center">
+        <div class="card">
+            <div class="card-body">
+                <h1 class="text-danger mb-4">⚠️ Errore</h1>
+                <p class="lead">{{ error }}</p>
+                <a href="/" class="btn btn-primary mt-3">Torna alla Home</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

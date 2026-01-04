@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}HomeFinder - Immobili Recenti{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1>Immobili Recenti</h1>
+        <p class="text-muted">Ultimi {{ properties|length }} immobili trovati su Tettorosso Immobiliare</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="/search" class="btn btn-primary">Cerca Immobili</a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Totale Immobili</h5>
+                <p class="card-text fs-3">{{ total_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">In Vendita</h5>
+                <p class="card-text fs-3 text-success">{{ vendita_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">In Affitto</h5>
+                <p class="card-text fs-3 text-primary">{{ affitto_count }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if properties %}
+<div class="row">
+    {% for property in properties %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card property-card h-100">
+            <div class="card-body">
+                <h5 class="card-title">{{ property.titolo }}</h5>
+                
+                {% if property.contratto == 'VENDITA' %}
+                <span class="badge bg-success mb-2">VENDITA</span>
+                {% elif property.contratto == 'AFFITTO' %}
+                <span class="badge bg-primary mb-2">AFFITTO</span>
+                {% endif %}
+                
+                <p class="property-price mb-2">
+                    {% if property.prezzo %}
+                    € {{ "{:,}".format(property.prezzo) }}
+                    {% else %}
+                    Prezzo non disponibile
+                    {% endif %}
+                </p>
+                
+                <div class="property-feature mb-2">
+                    {% if property.mq %}
+                    <span class="me-2"><i class="bi bi-house"></i> {{ property.mq }} m²</span>
+                    {% endif %}
+                    {% if property.locali %}
+                    <span class="me-2"><i class="bi bi-door-open"></i> {{ property.locali }} locali</span>
+                    {% endif %}
+                </div>
+                
+                <div class="property-feature mb-3">
+                    {% if property.piano %}
+                    <span class="me-2"><i class="bi bi-building"></i> {{ property.piano }}</span>
+                    {% endif %}
+                    {% if property.classe %}
+                    <span class="me-2"><i class="bi bi-energy"></i> Classe {{ property.classe }}</span>
+                    {% endif %}
+                </div>
+                
+                <p class="card-text text-truncate">{{ property.descrizione|truncate(100) }}</p>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a href="/property/{{ property.id }}" class="btn btn-sm btn-outline-primary">Dettagli</a>
+                <span class="text-muted float-end">{{ property.scrape_date[:10] }}</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">Nessun immobile trovato. Esegui una nuova scansione.</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<!-- Add any additional scripts here -->
+{% endblock %}

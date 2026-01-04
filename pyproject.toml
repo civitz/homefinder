@@ -1,7 +1,7 @@
 [project]
 name = "homefinder"
 version = "0.1.0"
-requires-python = ">=3.13"
+requires-python = ">=3"
 dependencies = [
     "attrs==25.4.0",
     "automat==25.4.16",
@@ -42,4 +42,10 @@ dependencies = [
     "urllib3==2.5.0",
     "w3lib==2.3.1",
     "zope-interface==8.1.1",
+    "flask==3.0.3",
+    "flask-sqlalchemy==3.1.1",
+    "schedule==1.2.2",
 ]
+
+[tool.setuptools]
+py-modules = []
