@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Search Properties - HomeFinder{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="display-4 mb-4">Search Properties</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" action="/properties">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label for="city" class="form-label">City</label>
+                            <input type="text" class="form-control" id="city" name="city" 
+                                   value="{{ search_params.city if search_params.city else '' }}" 
+                                   placeholder="e.g., Padova">
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="min_price" class="form-label">Min Price (€)</label>
+                            <input type="number" class="form-control" id="min_price" name="min_price" 
+                                   value="{{ search_params.min_price if search_params.min_price else '' }}" 
+                                   placeholder="e.g., 100000">
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="max_price" class="form-label">Max Price (€)</label>
+                            <input type="number" class="form-control" id="max_price" name="max_price" 
+                                   value="{{ search_params.max_price if search_params.max_price else '' }}" 
+                                   placeholder="e.g., 300000">
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="min_size" class="form-label">Min Size (m²)</label>
+                            <input type="number" class="form-control" id="min_size" name="min_size" 
+                                   value="{{ search_params.min_size if search_params.min_size else '' }}" 
+                                   placeholder="e.g., 80">
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="contract_type" class="form-label">Contract Type</label>
+                            <select class="form-select" id="contract_type" name="contract_type">
+                                <option value="">All</option>
+                                <option value="sell" {% if search_params.contract_type == 'sell' %}selected{% endif %}>For Sale</option>
+                                <option value="rent" {% if search_params.contract_type == 'rent' %}selected{% endif %}>For Rent</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-1 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">Search</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3>Search Results</h3>
+        
+        {% if properties %}
+        <p>Found {{ properties|length }} properties matching your criteria.</p>
+        
+        <div class="row">
+            {% for property in properties %}
+            <div class="col-md-4 mb-4">
+                <div class="card property-card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ property.title }}</h5>
+                        <p class="property-price">€ {{ "{:,}".format(property.price|int) }}</p>
+                        <p class="card-text">
+                            {{ property.bedrooms or 'N/A' }} bedrooms, 
+                            {{ property.bathrooms or 'N/A' }} bathrooms, 
+                            {{ property.square_meters or 'N/A' }} m²
+                        </p>
+                        <p class="text-muted">
+                            {{ property.city }} 
+                            {% if property.neighborhood %}| {{ property.neighborhood }}{% endif %}
+                        </p>
+                         <a href="/properties/{{ property.code }}" class="btn btn-sm btn-outline-primary">View Details</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% else %}
+        <div class="alert alert-info">
+            No properties found matching your criteria. Try adjusting your search filters.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

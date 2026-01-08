@@ -1,0 +1,24 @@
+import os
+from pathlib import Path
+from typing import Final
+
+# Directories
+BASE_DIR: Final[Path] = Path(__file__).parent
+DOWNLOAD_DIR: Final[Path] = BASE_DIR / "downloads"
+LOG_FILE: Final[Path] = BASE_DIR / "homefinder.log"
+DB_FILE: Final[Path] = BASE_DIR / "properties.db"
+EXAMPLES_DIR: Final[Path] = BASE_DIR / "examples"
+
+# Scraping configuration
+USER_AGENT: Final[str] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+REQUEST_TIMEOUT: Final[int] = 30
+MAX_RETRIES: Final[int] = 3
+
+# Flask configuration
+FLASK_SECRET_KEY: Final[str] = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
+FLASK_DEBUG: Final[bool] = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+FLASK_HOST: Final[str] = os.getenv("FLASK_HOST", "0.0.0.0")
+FLASK_PORT: Final[int] = int(os.getenv("FLASK_PORT", "5000"))
+
+# Database configuration
+DB_CONNECTION_STRING: Final[str] = f"sqlite:///{DB_FILE}"

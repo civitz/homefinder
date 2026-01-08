@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Market Statistics - HomeFinder{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="display-4 mb-4">Market Statistics</h1>
+        <p class="lead">Get insights into the Padova real estate market.</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Current Market Overview</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card text-center mb-3">
+                            <div class="card-body">
+                                <h3 class="card-title">0</h3>
+                                <p class="card-text">Total Properties</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center mb-3">
+                            <div class="card-body">
+                                <h3 class="card-title">€ 0</h3>
+                                <p class="card-text">Average Price</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center mb-3">
+                            <div class="card-body">
+                                <h3 class="card-title">0 m²</h3>
+                                <p class="card-text">Average Size</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center mb-3">
+                            <div class="card-body">
+                                <h3 class="card-title">N/A</h3>
+                                <p class="card-text">Last Updated</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Price Distribution</h5>
+                <p class="card-text">Distribution of property prices in our database.</p>
+                <div class="placeholder-chart" style="height: 300px; background-color: #f8f9fa; border: 1px dashed #dee2e6; display: flex; align-items: center; justify-content: center;">
+                    <p class="text-muted">Price distribution chart will appear here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Size Distribution</h5>
+                <p class="card-text">Distribution of property sizes in our database.</p>
+                <div class="placeholder-chart" style="height: 300px; background-color: #f8f9fa; border: 1px dashed #dee2e6; display: flex; align-items: center; justify-content: center;">
+                    <p class="text-muted">Size distribution chart will appear here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Contract Type Distribution</h5>
+                <p class="card-text">Percentage of properties for sale vs rent.</p>
+                <div class="placeholder-chart" style="height: 200px; background-color: #f8f9fa; border: 1px dashed #dee2e6; display: flex; align-items: center; justify-content: center;">
+                    <p class="text-muted">Contract type distribution will appear here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Data Information</h5>
+                <p class="card-text">Information about our data collection.</p>
+                <ul>
+                    <li><strong>Data Source:</strong> Tettorosso Immobiliare and other sources</li>
+                    <li><strong>Update Frequency:</strong> Daily</li>
+                    <li><strong>Coverage Area:</strong> Padova and surrounding areas</li>
+                    <li><strong>Last Scrape:</strong> Not yet implemented</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}{{ property.title }} - HomeFinder{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Home</a></li>
+                <li class="breadcrumb-item"><a href="/properties">Properties</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ property.title }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h1 class="card-title display-5">{{ property.title }}</h1>
+                <p class="property-price h3">€ {{ "{:,}".format(property.price|int) }}</p>
+                
+                <div class="mb-3">
+                    <span class="badge bg-primary">For {{ property.contract_type }}</span>
+                    <span class="badge bg-secondary">{{ property.city }} {% if property.neighborhood %}| {{ property.neighborhood }}{% endif %}</span>
+                </div>
+                
+                <div class="property-features mb-4">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <p><strong>Bedrooms:</strong> {{ property.bedrooms or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Bathrooms:</strong> {{ property.bathrooms or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Size:</strong> {{ property.square_meters or 'N/A' }} m²</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Year Built:</strong> {{ property.year_built or 'N/A' }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-3">
+                            <p><strong>Floor:</strong> {{ property.floor or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Elevator:</strong> {{ 'Yes' if property.has_elevator else 'No' if property.has_elevator is not none else 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Heating:</strong> {{ property.heating or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Energy Class:</strong> {{ property.energy_class or 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="property-description">
+                    <h4>Description</h4>
+                    <p>{{ property.description or 'No description available.' }}</p>
+                </div>
+                
+                {% if property.features and property.features|length > 0 %}
+                <div class="property-features mt-4">
+                    <h4>Features</h4>
+                    <ul class="list-unstyled">
+                        {% for feature in property.features %}
+                        <li class="mb-2"><span class="badge bg-light text-dark">{{ feature }}</span></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Property Details</h5>
+                <dl class="row">
+                    <dt class="col-sm-6">Agency:</dt>
+                    <dd class="col-sm-6">{{ property.agency or 'N/A' }}</dd>
+                    
+                    <dt class="col-sm-6">Property Code:</dt>
+                    <dd class="col-sm-6">{{ property.code or 'N/A' }}</dd>
+                    
+                    <dt class="col-sm-6">Scraped On:</dt>
+                    <dd class="col-sm-6">{{ property.scrape_date or 'N/A' }}</dd>
+                    
+                    <dt class="col-sm-6">Published On:</dt>
+                    <dd class="col-sm-6">{{ property.publication_date or 'N/A' }}</dd>
+                </dl>
+                
+                <div class="mt-4">
+                    <a href="{{ property.url }}" class="btn btn-primary w-100" target="_blank">
+                        View Original Listing
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Contact Agency</h5>
+                <p>Interested in this property? Contact the agency directly.</p>
+                <button class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#contactModal">
+                    Contact Agency
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactModalLabel">Contact Agency</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="contactName" class="form-label">Your Name</label>
+                        <input type="text" class="form-control" id="contactName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="contactEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactPhone" class="form-label">Phone</label>
+                        <input type="tel" class="form-control" id="contactPhone">
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactMessage" class="form-label">Message</label>
+                        <textarea class="form-control" id="contactMessage" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">Send Message</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

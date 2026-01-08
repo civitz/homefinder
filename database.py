@@ -1,0 +1,375 @@
+import sqlite3
+from typing import List, Optional, Dict, Any
+from pathlib import Path
+import logging
+from datetime import datetime
+
+from models import Listing
+from config import DB_FILE
+
+
+class DatabaseManager:
+    """Database manager for property listings."""
+    
+    def __init__(self, db_path: Optional[Path] = None):
+        self.db_path = db_path or DB_FILE
+        self.logger = logging.getLogger(__name__)
+        self._initialize_database()
+    
+    def _initialize_database(self) -> None:
+        """Initialize database and create tables if they don't exist."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Create listings table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS listings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title TEXT NOT NULL,
+                        agency TEXT NOT NULL,
+                        url TEXT UNIQUE NOT NULL,
+                        description TEXT,
+                        contract_type TEXT NOT NULL,
+                        price REAL NOT NULL,
+                        city TEXT NOT NULL,
+                        neighborhood TEXT,
+                        address TEXT,
+                        rooms INTEGER,
+                        bedrooms INTEGER,
+                        bathrooms INTEGER,
+                        square_meters INTEGER,
+                        floor TEXT,
+                        year_built INTEGER,
+                        has_elevator BOOLEAN,
+                        heating TEXT,
+                        has_air_conditioning BOOLEAN,
+                        has_garage BOOLEAN,
+                        is_furnished BOOLEAN,
+                        energy_class TEXT,
+                        energy_consumption REAL,
+                        features TEXT,
+                        scrape_date TEXT NOT NULL,
+                        publication_date TEXT,
+                        raw_html_file TEXT,
+                        code TEXT
+                    )
+                ''')
+                
+                # Create indexes for better search performance
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_city ON listings(city)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_price ON listings(price)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_contract ON listings(contract_type)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_square_meters ON listings(square_meters)')
+                
+                conn.commit()
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Database initialization error: {e}")
+            raise
+    
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get database connection."""
+        return sqlite3.connect(str(self.db_path))
+    
+    def save_listing(self, listing: Listing) -> bool:
+        """Save a single listing to database."""
+        try:
+            listing_dict = listing.to_dict()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Check if listing already exists
+                cursor.execute('SELECT id FROM listings WHERE url = ?', (listing.url,))
+                existing = cursor.fetchone()
+                
+                if existing:
+                    # Update existing listing
+                    update_query = '''
+                        UPDATE listings SET 
+                            title = ?,
+                            agency = ?,
+                            description = ?,
+                            contract_type = ?,
+                            price = ?,
+                            city = ?,
+                            neighborhood = ?,
+                            address = ?,
+                            rooms = ?,
+                            bedrooms = ?,
+                            bathrooms = ?,
+                            square_meters = ?,
+                            floor = ?,
+                            year_built = ?,
+                            has_elevator = ?,
+                            heating = ?,
+                            has_air_conditioning = ?,
+                            has_garage = ?,
+                            is_furnished = ?,
+                            energy_class = ?,
+                            energy_consumption = ?,
+                            features = ?,
+                            scrape_date = ?,
+                            publication_date = ?,
+                            raw_html_file = ?,
+                            code = ?
+                        WHERE url = ?
+                    '''
+                    
+                    cursor.execute(update_query, (
+                        listing_dict['title'],
+                        listing_dict['agency'],
+                        listing_dict['description'],
+                        listing_dict['contract_type'],
+                        listing_dict['price'],
+                        listing_dict['city'],
+                        listing_dict['neighborhood'],
+                        listing_dict['address'],
+                        listing_dict['rooms'],
+                        listing_dict['bedrooms'],
+                        listing_dict['bathrooms'],
+                        listing_dict['square_meters'],
+                        listing_dict['floor'],
+                        listing_dict['year_built'],
+                        listing_dict['has_elevator'],
+                        listing_dict['heating'],
+                        listing_dict['has_air_conditioning'],
+                        listing_dict['has_garage'],
+                        listing_dict['is_furnished'],
+                        listing_dict['energy_class'],
+                        listing_dict['energy_consumption'],
+                        str(listing_dict['features']) if listing_dict['features'] else None,
+                        listing_dict['scrape_date'],
+                        listing_dict['publication_date'],
+                        listing_dict['raw_html_file'],
+                        listing_dict['code'],
+                        listing.url
+                    ))
+                    
+                    self.logger.info(f"Updated existing listing: {listing.url}")
+                else:
+                    # Insert new listing
+                    insert_query = '''
+                        INSERT INTO listings (
+                            title, agency, url, description, contract_type, price, city, 
+                            neighborhood, address, rooms, bedrooms, bathrooms, square_meters, 
+                            floor, year_built, has_elevator, heating, has_air_conditioning, 
+                            has_garage, is_furnished, energy_class, energy_consumption, 
+                            features, scrape_date, publication_date, raw_html_file, code
+                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    '''
+                    
+                    cursor.execute(insert_query, (
+                        listing_dict['title'],
+                        listing_dict['agency'],
+                        listing_dict['url'],
+                        listing_dict['description'],
+                        listing_dict['contract_type'],
+                        listing_dict['price'],
+                        listing_dict['city'],
+                        listing_dict['neighborhood'],
+                        listing_dict['address'],
+                        listing_dict['rooms'],
+                        listing_dict['bedrooms'],
+                        listing_dict['bathrooms'],
+                        listing_dict['square_meters'],
+                        listing_dict['floor'],
+                        listing_dict['year_built'],
+                        listing_dict['has_elevator'],
+                        listing_dict['heating'],
+                        listing_dict['has_air_conditioning'],
+                        listing_dict['has_garage'],
+                        listing_dict['is_furnished'],
+                        listing_dict['energy_class'],
+                        listing_dict['energy_consumption'],
+                        str(listing_dict['features']) if listing_dict['features'] else None,
+                        listing_dict['scrape_date'],
+                        listing_dict['publication_date'],
+                        listing_dict['raw_html_file'],
+                        listing_dict['code']
+                    ))
+                    
+                    self.logger.info(f"Inserted new listing: {listing.url}")
+                
+                conn.commit()
+                return True
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error saving listing {listing.url}: {e}")
+            return False
+    
+    def save_listings(self, listings: List[Listing]) -> int:
+        """Save multiple listings to database."""
+        success_count = 0
+        for listing in listings:
+            if self.save_listing(listing):
+                success_count += 1
+        return success_count
+    
+    def get_listing_by_url(self, url: str) -> Optional[Listing]:
+        """Get listing by URL."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM listings WHERE url = ?', (url,))
+                row = cursor.fetchone()
+                 
+                if row:
+                    return self._row_to_listing(row)
+                 
+                return None
+                 
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching listing by URL {url}: {e}")
+            return None
+
+    def get_listing_by_code(self, code: str) -> Optional[Listing]:
+        """Get listing by property code."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM listings WHERE code = ?', (code,))
+                row = cursor.fetchone()
+                 
+                if row:
+                    return self._row_to_listing(row)
+                 
+                return None
+                 
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching listing by code {code}: {e}")
+            return None
+    
+    def search_listings(self, **kwargs) -> List[Listing]:
+        """Search listings with various filters."""
+        try:
+            query = 'SELECT * FROM listings WHERE 1=1'
+            params = []
+            
+            # Add filters based on kwargs
+            if 'city' in kwargs and kwargs['city']:
+                query += ' AND city = ?'
+                params.append(kwargs['city'])
+                
+            if 'min_price' in kwargs and kwargs['min_price']:
+                query += ' AND price >= ?'
+                params.append(kwargs['min_price'])
+                
+            if 'max_price' in kwargs and kwargs['max_price']:
+                query += ' AND price <= ?'
+                params.append(kwargs['max_price'])
+                
+            if 'min_size' in kwargs and kwargs['min_size']:
+                query += ' AND square_meters >= ?'
+                params.append(kwargs['min_size'])
+                
+            if 'contract_type' in kwargs and kwargs['contract_type']:
+                query += ' AND contract_type = ?'
+                params.append(kwargs['contract_type'])
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                
+                return [self._row_to_listing(row) for row in rows]
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error searching listings: {e}")
+            return []
+    
+    def get_all_listings(self) -> List[Listing]:
+        """Get all listings."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM listings')
+                rows = cursor.fetchall()
+                
+                return [self._row_to_listing(row) for row in rows]
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching all listings: {e}")
+            return []
+    
+    def _row_to_listing(self, row: tuple) -> Listing:
+        """Convert database row to Listing object."""
+        # Map row to listing fields
+        listing_data = {
+            'title': row[1],
+            'agency': row[2],
+            'url': row[3],
+            'description': row[4],
+            'contract_type': row[5],
+            'price': row[6],
+            'city': row[7],
+            'neighborhood': row[8],
+            'address': row[9],
+            'rooms': row[10],
+            'bedrooms': row[11],
+            'bathrooms': row[12],
+            'square_meters': row[13],
+            'floor': row[14],
+            'year_built': row[15],
+            'has_elevator': row[16],
+            'heating': row[17],
+            'has_air_conditioning': row[18],
+            'has_garage': row[19],
+            'is_furnished': row[20],
+            'energy_class': row[21],
+            'energy_consumption': row[22],
+            'features': row[23],
+            'scrape_date': row[24],
+            'publication_date': row[25],
+            'raw_html_file': row[26],
+            'code': row[27]
+        }
+        
+        # Convert features from string back to list
+        if listing_data['features']:
+            try:
+                # Simple parsing - this would need to be more robust for complex cases
+                listing_data['features'] = listing_data['features'].strip('[]').split(', ')
+            except:
+                listing_data['features'] = []
+        
+        return Listing.from_dict(listing_data)
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get statistics about the database."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Get total count
+                cursor.execute('SELECT COUNT(*) FROM listings')
+                total = cursor.fetchone()[0]
+                
+                # Get average price
+                cursor.execute('SELECT AVG(price) FROM listings')
+                avg_price = cursor.fetchone()[0] or 0
+                
+                # Get average size
+                cursor.execute('SELECT AVG(square_meters) FROM listings WHERE square_meters IS NOT NULL')
+                avg_size = cursor.fetchone()[0] or 0
+                
+                # Get last updated
+                cursor.execute('SELECT MAX(scrape_date) FROM listings')
+                last_updated = cursor.fetchone()[0]
+                
+                return {
+                    'total_properties': total,
+                    'average_price': round(avg_price, 2),
+                    'average_size': round(avg_size, 2),
+                    'last_updated': last_updated
+                }
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting stats: {e}")
+            return {
+                'total_properties': 0,
+                'average_price': 0,
+                'average_size': 0,
+                'last_updated': None
+            }

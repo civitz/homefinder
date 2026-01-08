@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}HomeFinder - Find Your Dream Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="display-4 mb-4">Welcome to HomeFinder</h1>
+        <p class="lead">Search and browse real estate properties in Padova and surrounding areas.</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Search Properties</h5>
+                <p class="card-text">Find properties by location, price, size, and more.</p>
+                <a href="/properties" class="btn btn-primary">Search Now</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">View Statistics</h5>
+                <p class="card-text">See market trends and property statistics.</p>
+                <a href="/stats" class="btn btn-secondary">View Stats</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">About HomeFinder</h5>
+                <p class="card-text">Learn more about our property search tool.</p>
+                <a href="/about" class="btn btn-info">Learn More</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
