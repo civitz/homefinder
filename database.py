@@ -24,36 +24,36 @@ class DatabaseManager:
                 
                 # Create listings table
                 cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS listings (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        title TEXT NOT NULL,
-                        agency TEXT NOT NULL,
-                        url TEXT UNIQUE NOT NULL,
-                        description TEXT,
-                        contract_type TEXT NOT NULL,
-                        price REAL NOT NULL,
-                        city TEXT NOT NULL,
-                        neighborhood TEXT,
-                        address TEXT,
-                        rooms INTEGER,
-                        bedrooms INTEGER,
-                        bathrooms INTEGER,
-                        square_meters INTEGER,
-                        floor TEXT,
-                        year_built INTEGER,
-                        has_elevator BOOLEAN,
-                        heating TEXT,
-                        has_air_conditioning BOOLEAN,
-                        has_garage BOOLEAN,
-                        is_furnished BOOLEAN,
-                        energy_class TEXT,
-                        energy_consumption REAL,
-                        features TEXT,
-                        scrape_date TEXT NOT NULL,
-                        publication_date TEXT,
-                        raw_html_file TEXT,
-                        code TEXT
-                    )
+                         CREATE TABLE IF NOT EXISTS listings (
+                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         title TEXT NOT NULL,
+                         agency TEXT NOT NULL,
+                         url TEXT UNIQUE NOT NULL,
+                         description TEXT,
+                         contract_type TEXT NOT NULL,
+                         price REAL NOT NULL,
+                         city TEXT NOT NULL,
+                         neighborhood TEXT,
+                         address TEXT,
+                         rooms INTEGER,
+                         bedrooms INTEGER,
+                         bathrooms INTEGER,
+                         square_meters INTEGER,
+                         floor TEXT,
+                         year_built INTEGER,
+                         has_elevator BOOLEAN,
+                         heating TEXT,
+                         has_air_conditioning BOOLEAN,
+                         has_garage BOOLEAN,
+                         is_furnished BOOLEAN,
+                         energy_class TEXT,
+                         energy_consumption REAL,
+                         features TEXT,
+                         scrape_date TEXT NOT NULL,
+                         publication_date TEXT,
+                         raw_html_file TEXT,
+                         agency_listing_id TEXT
+                     )
                 ''')
                 
                 # Create indexes for better search performance
@@ -72,7 +72,7 @@ class DatabaseManager:
         """Get database connection."""
         return sqlite3.connect(str(self.db_path))
     
-    def save_listing(self, listing: Listing) -> bool:
+    def save_listing(self, listing: Listing) -> int:
         """Save a single listing to database."""
         try:
             listing_dict = listing.to_dict()
@@ -83,7 +83,7 @@ class DatabaseManager:
                 # Check if listing already exists
                 cursor.execute('SELECT id FROM listings WHERE url = ?', (listing.url,))
                 existing = cursor.fetchone()
-                
+                 
                 if existing:
                     # Update existing listing
                     update_query = '''
@@ -113,10 +113,10 @@ class DatabaseManager:
                             scrape_date = ?,
                             publication_date = ?,
                             raw_html_file = ?,
-                            code = ?
+                             agency_listing_id = ?
                         WHERE url = ?
                     '''
-                    
+                     
                     cursor.execute(update_query, (
                         listing_dict['title'],
                         listing_dict['agency'],
@@ -143,10 +143,10 @@ class DatabaseManager:
                         listing_dict['scrape_date'],
                         listing_dict['publication_date'],
                         listing_dict['raw_html_file'],
-                        listing_dict['code'],
+                         listing_dict['agency_listing_id'],
                         listing.url
                     ))
-                    
+                     
                     self.logger.info(f"Updated existing listing: {listing.url}")
                 else:
                     # Insert new listing
@@ -156,10 +156,10 @@ class DatabaseManager:
                             neighborhood, address, rooms, bedrooms, bathrooms, square_meters, 
                             floor, year_built, has_elevator, heating, has_air_conditioning, 
                             has_garage, is_furnished, energy_class, energy_consumption, 
-                            features, scrape_date, publication_date, raw_html_file, code
+                             features, scrape_date, publication_date, raw_html_file, agency_listing_id
                          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     '''
-                    
+                     
                     cursor.execute(insert_query, (
                         listing_dict['title'],
                         listing_dict['agency'],
@@ -187,17 +187,23 @@ class DatabaseManager:
                         listing_dict['scrape_date'],
                         listing_dict['publication_date'],
                         listing_dict['raw_html_file'],
-                        listing_dict['code']
+                         listing_dict['agency_listing_id']
                     ))
-                    
+                     
                     self.logger.info(f"Inserted new listing: {listing.url}")
-                
+                 
                 conn.commit()
-                return True
                 
+                if existing:
+                    # Return the existing ID for updates
+                    return existing[0]
+                else:
+                    # Return the newly generated ID for inserts
+                    return cursor.lastrowid or -1
+                 
         except sqlite3.Error as e:
             self.logger.error(f"Error saving listing {listing.url}: {e}")
-            return False
+            return -1
     
     def save_listings(self, listings: List[Listing]) -> int:
         """Save multiple listings to database."""
@@ -224,21 +230,21 @@ class DatabaseManager:
             self.logger.error(f"Error fetching listing by URL {url}: {e}")
             return None
 
-    def get_listing_by_code(self, code: str) -> Optional[Listing]:
-        """Get listing by property code."""
+    def get_listing_by_id(self, listing_id: int) -> Optional[Listing]:
+        """Get listing by database ID."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT * FROM listings WHERE code = ?', (code,))
+                cursor.execute('SELECT * FROM listings WHERE id = ?', (listing_id,))
                 row = cursor.fetchone()
-                 
+                  
                 if row:
                     return self._row_to_listing(row)
-                 
+                  
                 return None
-                 
+                  
         except sqlite3.Error as e:
-            self.logger.error(f"Error fetching listing by code {code}: {e}")
+            self.logger.error(f"Error fetching listing by ID {listing_id}: {e}")
             return None
     
     def search_listings(self, **kwargs) -> List[Listing]:
@@ -297,6 +303,7 @@ class DatabaseManager:
         """Convert database row to Listing object."""
         # Map row to listing fields
         listing_data = {
+            'id': row[0],
             'title': row[1],
             'agency': row[2],
             'url': row[3],
@@ -323,7 +330,7 @@ class DatabaseManager:
             'scrape_date': row[24],
             'publication_date': row[25],
             'raw_html_file': row[26],
-            'code': row[27]
+            'agency_listing_id': row[27]
         }
         
         # Convert features from string back to list

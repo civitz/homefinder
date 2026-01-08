@@ -90,7 +90,7 @@ class TettorossoScraper:
         listing.energy_class = self._extract_energy_class(soup)
         listing.has_elevator = self._extract_has_elevator(soup)
         listing.heating = self._extract_heating(soup)
-        listing.code = self._extract_code(soup)
+        listing.agency_listing_id = self._extract_agency_listing_id(soup)
         listing.raw_html_file = source
         
         return listing
@@ -219,12 +219,12 @@ class TettorossoScraper:
         
         return None
     
-    def _extract_code(self, soup: BeautifulSoup) -> Optional[str]:
-        """Extract property code."""
+    def _extract_agency_listing_id(self, soup: BeautifulSoup) -> Optional[str]:
+        """Extract agency listing ID."""
         code_element = soup.find('td', string=lambda text: text and text.startswith('iv') if text else False)
         if code_element:
             return code_element.get_text(strip=True)
-        
+         
         return None
 
 

@@ -82,11 +82,14 @@ class Listing:
     # Additional features
     features: Optional[List[str]] = None
     
+    # Database metadata
+    id: Optional[int] = None
+    
     # Metadata
     scrape_date: datetime = datetime.now()
     publication_date: Optional[datetime] = None
     raw_html_file: Optional[str] = None
-    code: Optional[str] = None
+    agency_listing_id: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert listing to dictionary for JSON serialization."""
@@ -116,8 +119,9 @@ class Listing:
             "features": self.features,
             "scrape_date": self.scrape_date.isoformat(),
             "publication_date": self.publication_date.isoformat() if self.publication_date else None,
+            "id": self.id,
             "raw_html_file": self.raw_html_file,
-            "code": self.code
+            "agency_listing_id": self.agency_listing_id
         }
     
     @classmethod
@@ -149,8 +153,9 @@ class Listing:
             features=data.get("features"),
             scrape_date=datetime.fromisoformat(data["scrape_date"]),
             publication_date=datetime.fromisoformat(data["publication_date"]) if data.get("publication_date") else None,
+            id=data.get("id"),
             raw_html_file=data.get("raw_html_file"),
-            code=data.get("code")
+            agency_listing_id=data.get("agency_listing_id")
         )
 
     def clean_price(self, price_str: str) -> float:

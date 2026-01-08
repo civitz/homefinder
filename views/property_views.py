@@ -42,6 +42,7 @@ def search_properties():
         properties_data = []
         for prop in properties:
             properties_data.append({
+                'id': prop.id,
                 'title': prop.title,
                 'price': prop.price,
                 'city': prop.city,
@@ -51,7 +52,7 @@ def search_properties():
                 'square_meters': prop.square_meters,
                 'contract_type': prop.contract_type.value,
                 'url': prop.url,
-                'code': prop.code
+                'agency_listing_id': prop.agency_listing_id
             })
         
         return render_template('search.html', 
@@ -77,15 +78,15 @@ def search_properties():
                              })
 
 
-@property_bp.route('/<property_id>')
-def property_detail(property_id: str):
+@property_bp.route('/<int:property_id>')
+def property_detail(property_id: int):
     """Property detail page."""
     try:
         from database import DatabaseManager
         db_manager = DatabaseManager()
         
-        # Fetch property from database by code
-        property_data = db_manager.get_listing_by_code(property_id)
+        # Fetch property from database by ID
+        property_data = db_manager.get_listing_by_id(property_id)
         
         if property_data:
             # Convert to simpler format for template
@@ -117,7 +118,7 @@ def property_detail(property_id: str):
                 'agency': property_data.agency,
                 'contract_type': property_data.contract_type.value,
                 'url': property_data.url,
-                'code': property_data.code
+                'agency_listing_id': property_data.agency_listing_id
             }
             
             return render_template('property_detail.html', property=property_dict)
