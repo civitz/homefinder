@@ -7,7 +7,7 @@ location: "Via Caratti, Arcella - Sant'Antonino - Padova PD"
 bedrooms: 3
 bathrooms: 2
 square_meters: 130
-code: "Via Caratti"  # Current scraper extracts address instead of ID
+code: "3518882"  # Current scraper extracts address instead of ID
 year: null
 energy_class: "F"  # Scraper extracts this correctly
 elevator: false  # Scraper extracts this correctly

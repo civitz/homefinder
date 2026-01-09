@@ -822,15 +822,23 @@ class GalileoScraper(BaseScraper):
     
     def _extract_agency_listing_id(self, soup: BeautifulSoup) -> Optional[str]:
         """Extract agency listing ID."""
-        # Look for ID in overview section
-        id_element = soup.find('div', class_='block-title-wrap')
-        if id_element:
-            strong_tag = id_element.find('strong')
+        # Look for ID in overview section - the ID is in a div with strong:ID: text
+        all_divs = soup.find_all('div', class_='block-title-wrap')
+        for div in all_divs:
+            strong_tag = div.find('strong')
             if strong_tag and 'ID:' in strong_tag.get_text():
-                span_tag = strong_tag.find_next('span')
-                if span_tag:
-                    return span_tag.get_text(strip=True)
-        
+                # The ID value is in the text after the strong tag
+                id_text = div.get_text(strip=True)
+                if 'ID:' in id_text:
+                    # Extract the ID number after "ID:"
+                    id_value = id_text.split('ID:')[-1].strip()
+                    return id_value
+         
+        # Alternative: look for hidden input field with property_id
+        property_id_input = soup.find('input', {'name': 'property_id'})
+        if property_id_input:
+            return property_id_input.get('value', '').strip()
+         
         # Alternative: look in details list
         all_li = soup.find_all('li')
         for li in all_li:
@@ -839,7 +847,7 @@ class GalileoScraper(BaseScraper):
                 span_tag = li.find('span')
                 if span_tag:
                     return span_tag.get_text(strip=True)
-        
+         
         return None
 
     def scrape_live_listings(self) -> List[Listing]:
