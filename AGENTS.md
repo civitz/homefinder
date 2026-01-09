@@ -75,9 +75,9 @@ Type of page: paginated results, pages are like this: https://www.galileoimmobil
 
 One directory per website, with 2 files per example:
 - `examples/<websitename>/page1.html` with the content of the page
-- `examples/<websitename>/page1.md` with the expected metadata of the page
+- `examples/<websitename>/page1.yaml` with the expected metadata of the page in YAML format
 
-Use examples to produce the correct scraper for each site. Sometimes the data is not correctly formatted.
+Use examples to produce the correct scraper for each site. The YAML files serve as both test data and documentation, and are used by the automated test suite to validate scraper functionality.
 
 ### Web Interface Files
 
@@ -112,9 +112,23 @@ Use examples to produce the correct scraper for each site. Sometimes the data is
 2. Python 3.8+
 3. Required packages: `uv pip install -r requirements.txt`
 
+### Running Tests
+
+To run the test suite:
+```bash
+source .venv/bin/activate
+python -m pytest tests/
+```
+
+This will run all scraper tests that validate the parsing functionality against the example HTML files and their corresponding YAML expectations.
+
 
 ### Running the Application
 
+Enable virtualenv via:
+```bash
+source .venv/bin/activate
+```
 
 ```bash
 python main.py
