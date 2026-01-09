@@ -129,6 +129,7 @@ class TettorossoScraper(BaseScraper):
         listing.energy_class = self._extract_energy_class(soup)
         listing.has_elevator = self._extract_has_elevator(soup)
         listing.heating = self._extract_heating(soup)
+        listing.has_garage = self._extract_has_garage(soup)
         listing.agency_listing_id = self._extract_agency_listing_id(soup)
         listing.raw_html_file = source
         
@@ -204,15 +205,53 @@ class TettorossoScraper(BaseScraper):
     
     def _extract_bedrooms(self, soup: BeautifulSoup) -> Optional[int]:
         """Extract number of bedrooms."""
-        bedrooms_element = soup.find('span', class_='immc__value')
-        if bedrooms_element and bedrooms_element.get_text(strip=True).isdigit():
-            return int(bedrooms_element.get_text(strip=True))
-         
+        # Look for the bedrooms in the sidebar info list
+        # Find the list item with the bedroom icon (ic-letto)
+        bedroom_li = soup.find('li')
+        if bedroom_li:
+            # Look for the icon that indicates bedrooms
+            bedroom_icon = bedroom_li.find('span', class_='ic-letto')
+            if bedroom_icon:
+                # Get the value from the immc__value span in the same li
+                value_span = bedroom_li.find('span', class_='immc__value')
+                if value_span and value_span.get_text(strip=True).isdigit():
+                    return int(value_span.get_text(strip=True))
+        
+        # Alternative: look for all list items and find the one with "Camere" label
+        all_li = soup.find_all('li')
+        for li in all_li:
+            label_span = li.find('span', class_='immc__label')
+            if label_span and 'Camere' in label_span.get_text(strip=True):
+                value_span = li.find('span', class_='immc__value')
+                if value_span and value_span.get_text(strip=True).isdigit():
+                    return int(value_span.get_text(strip=True))
+        
         return None
     
     def _extract_bathrooms(self, soup: BeautifulSoup) -> Optional[int]:
         """Extract number of bathrooms."""
-        # Look for bathrooms in the details table or features
+        # Look for the bathrooms in the sidebar info list
+        # Find the list item with the bathroom icon (ic-bagno)
+        bathroom_li = soup.find('li')
+        if bathroom_li:
+            # Look for the icon that indicates bathrooms
+            bathroom_icon = bathroom_li.find('span', class_='ic-bagno')
+            if bathroom_icon:
+                # Get the value from the immc__value span in the same li
+                value_span = bathroom_li.find('span', class_='immc__value')
+                if value_span and value_span.get_text(strip=True).isdigit():
+                    return int(value_span.get_text(strip=True))
+        
+        # Alternative: look for all list items and find the one with "Bagni" label
+        all_li = soup.find_all('li')
+        for li in all_li:
+            label_span = li.find('span', class_='immc__label')
+            if label_span and 'Bagni' in label_span.get_text(strip=True):
+                value_span = li.find('span', class_='immc__value')
+                if value_span and value_span.get_text(strip=True).isdigit():
+                    return int(value_span.get_text(strip=True))
+        
+        # Fallback: look for bathrooms in the details table or features
         all_td = soup.find_all('td')
         for td in all_td:
             if 'bagni' in td.get_text().lower():
@@ -220,17 +259,41 @@ class TettorossoScraper(BaseScraper):
                 numbers = re.findall(r'\d+', text)
                 if numbers:
                     return int(numbers[0])
-         
+        
         return None
     
     def _extract_square_meters(self, soup: BeautifulSoup) -> Optional[int]:
         """Extract square meters."""
+        # Look for the square meters in the sidebar info list
+        # Find the list item with the mq icon (ic-mq)
+        mq_li = soup.find('li')
+        if mq_li:
+            # Look for the icon that indicates square meters
+            mq_icon = mq_li.find('span', class_='ic-mq')
+            if mq_icon:
+                # Get the value from the immc__value span in the same li
+                value_span = mq_li.find('span', class_='immc__value')
+                if value_span:
+                    text = value_span.get_text(strip=True)
+                    return self._clean_square_meters(text)
+        
+        # Alternative: look for all list items and find the one with "Metri quadri" label
+        all_li = soup.find_all('li')
+        for li in all_li:
+            label_span = li.find('span', class_='immc__label')
+            if label_span and 'Metri quadri' in label_span.get_text(strip=True):
+                value_span = li.find('span', class_='immc__value')
+                if value_span:
+                    text = value_span.get_text(strip=True)
+                    return self._clean_square_meters(text)
+        
+        # Fallback: look for any immc__value span with m² or mq
         mq_element = soup.find('span', class_='immc__value')
         if mq_element:
             text = mq_element.get_text(strip=True)
             if 'm²' in text or 'mq' in text:
                 return self._clean_square_meters(text)
-         
+        
         return None
     
     def _extract_year_built(self, soup: BeautifulSoup) -> Optional[int]:
@@ -269,6 +332,25 @@ class TettorossoScraper(BaseScraper):
          
         return None
     
+    def _extract_has_garage(self, soup: BeautifulSoup) -> Optional[bool]:
+        """Extract garage information."""
+        # Look for garage in the details table
+        all_td = soup.find_all('td')
+        for td in all_td:
+            if 'garage' in td.get_text().lower():
+                return True
+        
+        # Look for garage in the "Ambienti" (environments) section
+        all_tr = soup.find_all('tr')
+        for tr in all_tr:
+            th = tr.find('th')
+            if th and 'Ambienti' in th.get_text(strip=True):
+                td = tr.find('td')
+                if td and 'garage' in td.get_text().lower():
+                    return True
+        
+        return None
+
     def _extract_agency_listing_id(self, soup: BeautifulSoup) -> Optional[str]:
         """Extract agency listing ID."""
         all_td = soup.find_all('td')
@@ -276,7 +358,7 @@ class TettorossoScraper(BaseScraper):
             text = td.get_text(strip=True)
             if text.startswith('iv'):
                 return text
-           
+            
         return None
 
     def scrape_live_listings(self) -> List[Listing]:

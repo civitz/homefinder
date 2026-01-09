@@ -4,9 +4,9 @@
 title: "Quadrilocale al primo piano"
 price: 169000.0
 location: "Padova | San Carlo"
-bedrooms: null  # Current scraper doesn't extract this correctly
-bathrooms: null  # Current scraper doesn't extract this correctly  
-square_meters: null  # Current scraper doesn't extract this correctly
+bedrooms: 3
+bathrooms: 2  
+square_meters: 120
 code: "iv111"
 year: 1968
 energy_class: "F"
@@ -15,7 +15,7 @@ elevator: true
 heating: "centralized"
 rooms: "cucina (kitchen), soggiorno (living room)"
 balcony: null
-garage: null  # Current scraper doesn't extract this correctly
+garage: true
 contract: "sell"
 agency: "Tettorosso Immobiliare"
 city: "Padova"
