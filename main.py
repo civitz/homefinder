@@ -12,7 +12,7 @@ sys.path.insert(0, str(project_root))
 
 from app import app
 from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR
-from scraper import TettorossoScraper
+from scraper import TettorossoScraper, GalileoScraper
 from database import DatabaseManager
 
 
@@ -33,7 +33,10 @@ def main():
     try:
         # Initialize components
         db_manager = DatabaseManager()
-        scraper = TettorossoScraper()
+        scrapers = [
+            TettorossoScraper(),
+            GalileoScraper()
+        ]
         
         # Create necessary directories
         DOWNLOAD_DIR.mkdir(exist_ok=True)
@@ -43,10 +46,20 @@ def main():
         if example_files:
             logger.info(f"Found {len(example_files)} example files")
             
-            # Process example files
+            # Process example files with appropriate scrapers
             for example_file in example_files:
                 try:
                     logger.info(f"Processing example file: {example_file}")
+                    
+                    # Determine which scraper to use based on the file path
+                    if 'tettorossoimmobiliare.it' in str(example_file):
+                        scraper = next(s for s in scrapers if isinstance(s, TettorossoScraper))
+                    elif 'galileoimmobiliare.it' in str(example_file):
+                        scraper = next(s for s in scrapers if isinstance(s, GalileoScraper))
+                    else:
+                        logger.warning(f"Unknown website for file: {example_file}")
+                        continue
+                    
                     listing = scraper.scrape_html_file(example_file)
                     if listing:
                         db_manager.save_listing(listing)
