@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from typing import Dict, Any, List
 from datetime import datetime
 
@@ -143,17 +143,58 @@ def trigger_scrape():
     """Trigger manual scraping."""
     data = request.get_json() or {}
     
-    # TODO: Implement scraping logic
-    result = {
-        "status": "not_implemented",
-        "message": "Manual scraping not yet implemented",
-        "params": data
-    }
-    
-    return jsonify({
-        "success": True,
-        "data": result
-    })
+    try:
+        from background_scraper import get_background_scraper
+        import threading
+        import logging
+        
+        scraper = get_background_scraper()
+        
+        if scraper:
+            # Run scraping in background
+            def run_scraping():
+                try:
+                    count = scraper.run_once()
+                    logging.info(f"API scraping completed: {count} listings found")
+                except Exception as e:
+                    logging.error(f"API scraping failed: {e}")
+            
+            # Start scraping in background thread
+            thread = threading.Thread(target=run_scraping, daemon=True)
+            thread.start()
+            
+            result = {
+                "status": "started",
+                "message": "Scraping launched in background",
+                "params": data
+            }
+            
+            return jsonify({
+                "success": True,
+                "data": result
+            })
+        else:
+            result = {
+                "status": "error",
+                "message": "Background scraper is not available",
+                "params": data
+            }
+            
+            return jsonify({
+                "success": False,
+                "data": result
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "data": {
+                "status": "error",
+                "message": "Failed to trigger scraping",
+                "params": data
+            }
+        })
 
 
 @api_bp.errorhandler(404)
@@ -174,3 +215,45 @@ def server_error(error):
         "error": "Server error",
         "message": str(error)
     }), 500
+
+
+@api_bp.route('/clear', methods=['POST'])
+def clear_properties():
+    """Clear all properties from database."""
+    try:
+        from database import DatabaseManager
+        db_manager = DatabaseManager()
+        
+        # Check for confirmation in request
+        data = request.get_json() or {}
+        confirm = data.get('confirm', False)
+        
+        if not confirm:
+            return jsonify({
+                "success": False,
+                "error": "Confirmation required",
+                "message": "Please set confirm=true to delete all properties"
+            })
+        
+        # Clear all listings
+        count = db_manager.clear_all_listings()
+        
+        if count >= 0:
+            return jsonify({
+                "success": True,
+                "message": f"Successfully removed {count} properties from the database",
+                "count": count
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Database error",
+                "message": "Failed to clear properties"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "message": "Failed to clear properties"
+        })

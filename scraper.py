@@ -706,11 +706,12 @@ class GalileoScraper(BaseScraper):
                     if not isinstance(href, str):
                         continue
                     # Filter for property detail pages
-                    if href and f'/{listing_type}/' in href and href.count('/') > 2:
-                        if not href.startswith('http'):
-                            href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
-                        if href not in property_links:
-                            property_links.append(href)
+                    # Exclude pagination pages and main listing pages
+                    if href and f'/{listing_type}/' in href and href.count('/') > 2 and '/page/' not in href and not href.endswith(f'/{listing_type}/'):
+                         if not href.startswith('http'):
+                             href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
+                         if href not in property_links:
+                             property_links.append(href)
                 
                 if not property_links:
                     has_more_pages = False

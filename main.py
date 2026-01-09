@@ -48,6 +48,9 @@ def main(args=None):
             background_scraper = None
         else:
             background_scraper = BackgroundScraper(interval_hours=args.scrape_interval)
+            # Set global instance for manual triggering
+            from background_scraper import set_background_scraper
+            set_background_scraper(background_scraper)
         
         # Create necessary directories
         DOWNLOAD_DIR.mkdir(exist_ok=True)

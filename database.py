@@ -348,30 +348,30 @@ class DatabaseManager:
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                
+                 
                 # Get total count
                 cursor.execute('SELECT COUNT(*) FROM listings')
                 total = cursor.fetchone()[0]
-                
+                 
                 # Get average price
                 cursor.execute('SELECT AVG(price) FROM listings')
                 avg_price = cursor.fetchone()[0] or 0
-                
+                 
                 # Get average size
                 cursor.execute('SELECT AVG(square_meters) FROM listings WHERE square_meters IS NOT NULL')
                 avg_size = cursor.fetchone()[0] or 0
-                
+                 
                 # Get last updated
                 cursor.execute('SELECT MAX(scrape_date) FROM listings')
                 last_updated = cursor.fetchone()[0]
-                
+                 
                 return {
                     'total_properties': total,
                     'average_price': round(avg_price, 2),
                     'average_size': round(avg_size, 2),
                     'last_updated': last_updated
                 }
-                
+                 
         except sqlite3.Error as e:
             self.logger.error(f"Error getting stats: {e}")
             return {
@@ -380,3 +380,25 @@ class DatabaseManager:
                 'average_size': 0,
                 'last_updated': None
             }
+
+    def clear_all_listings(self) -> int:
+        """Remove all listings from the database."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Get count before deletion
+                cursor.execute('SELECT COUNT(*) FROM listings')
+                count_before = cursor.fetchone()[0]
+                
+                # Delete all listings
+                cursor.execute('DELETE FROM listings')
+                
+                conn.commit()
+                
+                self.logger.info(f"Cleared all listings from database. Removed {count_before} listings.")
+                return count_before
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error clearing all listings: {e}")
+            return -1

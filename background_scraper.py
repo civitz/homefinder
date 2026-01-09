@@ -11,6 +11,9 @@ from scraper import TettorossoScraper, GalileoScraper
 from database import DatabaseManager
 from models import Listing
 
+# Global instance for manual triggering
+background_scraper_instance = None
+
 
 class BackgroundScraper:
     """Background service for periodic scraping of real estate websites."""
@@ -152,3 +155,14 @@ class BackgroundScraper:
             Number of listings successfully scraped and saved
         """
         return self._scrape_all_websites()
+
+
+def get_background_scraper() -> Optional['BackgroundScraper']:
+    """Get the global background scraper instance."""
+    return background_scraper_instance
+
+
+def set_background_scraper(scraper: 'BackgroundScraper'):
+    """Set the global background scraper instance."""
+    global background_scraper_instance
+    background_scraper_instance = scraper
