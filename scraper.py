@@ -283,49 +283,79 @@ class TettorossoScraper(BaseScraper):
         """Scrape live listings from the website."""
         listings = []
         
-        # Fetch the main listings page
-        listings_page_url = f"{self.base_url}/immobili/"
-        html_content = self.fetch_url(listings_page_url)
-        
-        if not html_content:
-            self.logger.error(f"Failed to fetch listings page: {listings_page_url}")
-            return listings
+        try:
+            # Fetch the main listings page
+            listings_page_url = f"{self.base_url}/immobili/"
+            self.logger.info(f"Fetching Tettorosso listings page: {listings_page_url}")
+            html_content = self.fetch_url(listings_page_url)
             
-        soup = BeautifulSoup(html_content, 'html.parser')
-        
-        # Find all property listing links
-        property_links = []
-        listing_elements = soup.find_all('a', href=True)
-        
-        for element in listing_elements:
-            href = element.get('href', '')
-            # Filter for property detail pages
-            # Tettorosso uses /immobili/<property-name>-iv<id>/ pattern
-            if href and '/immobili/' in href and 'iv' in href and href not in property_links:
-                if not href.startswith('http'):
-                    href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
-                property_links.append(href)
-        
-        self.logger.info(f"Found {len(property_links)} property links to scrape")
-        
-        # Scrape each property page
-        for link in property_links:
-            try:
-                property_html = self.fetch_url(link)
-                if property_html:
-                    # Save HTML to file for reference
-                    file_name = f"tettorosso_{hash(link)}.html"
-                    file_path = DOWNLOAD_DIR / file_name
-                    self.save_html(property_html, file_path)
-                    
-                    # Parse the HTML
-                    listing = self._parse_html(property_html, link)
-                    if listing:
-                        listings.append(listing)
-                        self.logger.info(f"Successfully scraped: {listing.title}")
+            if not html_content:
+                self.logger.warning(f"Failed to fetch Tettorosso listings page: {listings_page_url}")
+                return listings
+            
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Find all property listing links
+            property_links = []
+            listing_elements = soup.find_all('a', href=True)
+            
+            for element in listing_elements:
+                href = element.get('href', '')
+                # Filter for property detail pages
+                # Tettorosso uses /immobili/<property-name>-iv<id>/ pattern
+                if href and '/immobili/' in href and 'iv' in href and href not in property_links:
+                    if not href.startswith('http'):
+                        href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
+                    property_links.append(href)
+            
+            self.logger.info(f"Found {len(property_links)} Tettorosso property links to scrape")
+            
+            # If no property links found, check if website structure has changed
+            if not property_links:
+                self.logger.warning("No Tettorosso property links found - website structure may have changed")
                 
-            except Exception as e:
-                self.logger.error(f"Error scraping {link}: {e}")
+                # Try alternative patterns
+                alternative_links = []
+                for element in listing_elements:
+                    href = element.get('href', '')
+                    # Try broader patterns
+                    if href and '/immobili/' in href and href not in property_links and href not in alternative_links:
+                        if not href.startswith('http'):
+                            href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
+                        alternative_links.append(href)
+                
+                if alternative_links:
+                    self.logger.info(f"Trying {len(alternative_links)} alternative Tettorosso links")
+                    property_links = alternative_links
+                else:
+                    self.logger.warning("No alternative Tettorosso property links found either")
+                    return listings
+            
+            # Scrape each property page
+            for link in property_links:
+                try:
+                    property_html = self.fetch_url(link)
+                    if property_html:
+                        # Save HTML to file for reference
+                        file_name = f"tettorosso_{hash(link)}.html"
+                        file_path = DOWNLOAD_DIR / file_name
+                        self.save_html(property_html, file_path)
+                        
+                        # Parse the HTML
+                        listing = self._parse_html(property_html, link)
+                        if listing:
+                            listings.append(listing)
+                            self.logger.info(f"Successfully scraped Tettorosso: {listing.title}")
+                        else:
+                            self.logger.warning(f"Failed to parse Tettorosso property: {link}")
+                    else:
+                        self.logger.warning(f"Failed to fetch Tettorosso property page: {link}")
+                
+                except Exception as e:
+                    self.logger.error(f"Error scraping Tettorosso {link}: {e}")
+        
+        except Exception as e:
+            self.logger.error(f"Fatal error in Tettorosso scraping: {e}")
         
         return listings
 
