@@ -26,6 +26,23 @@ The project follows a three-step process:
 - **enum**: Enumerated types for contract and heating types
 - **scrapy**: to navigate websites and download listings HTML pages
 
+## Supported websites
+
+### Tettorosso immobiliare
+
+Main website: https://www.tettorossoimmobiliare.it/
+Listing page: https://www.tettorossoimmobiliare.it/immobili/
+Type of listings: rent and sell
+Type of page: continuously scrolling page, there is a "CARICA ALTRI IMMOBILI" button if other properties are available
+
+### Galileo immobiliare
+
+Main website: https://www.galileoimmobiliare.it/
+Listing page:
+- For rent: https://www.galileoimmobiliare.it/affitto/
+- For sell: https://www.galileoimmobiliare.it/immobile/
+Type of page: paginated results, pages are like this: https://www.galileoimmobiliare.it/immobile/page/<page number starting from 1>/ If page is not available, we get an HTTP 404
+
 ## File Structure and Key Functions
 
 ### Main Files

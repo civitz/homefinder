@@ -11,4 +11,7 @@ Energy class: F
 Floor: primo piano
 Elevator: yes
 Heating: centralized
-Rooms: cucina (kitchen), soggiorno (living room), garage
+Rooms: cucina (kitchen), soggiorno (living room)
+Balcony: N/a
+Garage: yes
+Contract: sell
