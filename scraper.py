@@ -280,11 +280,11 @@ class TettorossoScraper(BaseScraper):
         return None
 
     def scrape_live_listings(self) -> List[Listing]:
-        """Scrape live listings from the website."""
+        """Scrape live listings from the website using AJAX pagination."""
         listings = []
         
         try:
-            # Fetch the main listings page
+            # First, fetch the main listings page to get the nonce and initial data
             listings_page_url = f"{self.base_url}/immobili/"
             self.logger.info(f"Fetching Tettorosso listings page: {listings_page_url}")
             html_content = self.fetch_url(listings_page_url)
@@ -293,67 +293,158 @@ class TettorossoScraper(BaseScraper):
                 self.logger.warning(f"Failed to fetch Tettorosso listings page: {listings_page_url}")
                 return listings
             
+            # Extract nonce from the page (required for AJAX calls)
             soup = BeautifulSoup(html_content, 'html.parser')
+            imsearch_element = soup.find('div', id='imsearch')
             
-            # Find all property listing links
-            property_links = []
-            listing_elements = soup.find_all('a', href=True)
+            # Try to get nonce from data-nonce attribute
+            nonce = None
+            if imsearch_element:
+                nonce = imsearch_element.get('data-nonce')
             
-            for element in listing_elements:
-                href = element.get('href', '')
-                # Filter for property detail pages
-                # Tettorosso uses /immobili/<property-name>-iv<id>/ pattern
-                if href and '/immobili/' in href and 'iv' in href and href not in property_links:
-                    if not href.startswith('http'):
-                        href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
-                    property_links.append(href)
+            # If not found in data-nonce, try to extract from JavaScript
+            if not nonce:
+                # Look for nonce in script tags
+                script_tags = soup.find_all('script')
+                for script in script_tags:
+                    script_content = script.string
+                    if script_content and 'nonce' in script_content:
+                        # Try to extract nonce from JavaScript
+                        import re
+                        nonce_match = re.search(r'nonce["\']?\s*:\s*["\']([^"\']+)["\']', script_content)
+                        if nonce_match:
+                            nonce = nonce_match.group(1)
+                            break
             
-            self.logger.info(f"Found {len(property_links)} Tettorosso property links to scrape")
+            if not nonce:
+                self.logger.error("Could not find nonce for AJAX requests")
+                return listings
             
-            # If no property links found, check if website structure has changed
-            if not property_links:
-                self.logger.warning("No Tettorosso property links found - website structure may have changed")
+            # Use AJAX to fetch properties page by page
+            current_page = 1
+            has_more_pages = True
+            
+            while has_more_pages:
+                self.logger.info(f"Fetching Tettorosso properties - Page {current_page}")
                 
-                # Try alternative patterns
-                alternative_links = []
-                for element in listing_elements:
-                    href = element.get('href', '')
-                    # Try broader patterns
-                    if href and '/immobili/' in href and href not in property_links and href not in alternative_links:
-                        if not href.startswith('http'):
-                            href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
-                        alternative_links.append(href)
+                # Call the WordPress AJAX endpoint to get properties
+                ajax_url = f"{self.base_url}/wp-admin/admin-ajax.php?action=sf_get_immobili"
                 
-                if alternative_links:
-                    self.logger.info(f"Trying {len(alternative_links)} alternative Tettorosso links")
-                    property_links = alternative_links
-                else:
-                    self.logger.warning("No alternative Tettorosso property links found either")
-                    return listings
-            
-            # Scrape each property page
-            for link in property_links:
+                # Prepare form data for the AJAX request
+                form_data = {
+                    'paged': str(current_page),
+                    'order': 'DESC',
+                    'orderby': 'date',
+                    'posts_per_page': '6',  # Default per page
+                    'nonce': nonce,
+                    'filters': '[]',  # No filters for initial scrape
+                    'gim_category': '8',  # Residenziale (default)
+                    'comune': '',
+                    'zona': '',
+                    'gim_types_res': '',
+                    'gim_types_com': '',
+                    'filter_locali': '',
+                    'filter_locali_comparison': '=',
+                    'riferimento': '',
+                    'gim_source': '',
+                    'gim_contract': '',
+                    'min_mq': '',
+                    'max_mq': '',
+                    'min_price': '',
+                    'max_price': ''
+                }
+                
                 try:
-                    property_html = self.fetch_url(link)
-                    if property_html:
-                        # Save HTML to file for reference
-                        file_name = f"tettorosso_{hash(link)}.html"
-                        file_path = DOWNLOAD_DIR / file_name
-                        self.save_html(property_html, file_path)
+                    # Make POST request to AJAX endpoint
+                    response = self.session.post(ajax_url, data=form_data, timeout=REQUEST_TIMEOUT)
+                    response.raise_for_status()
+                    
+                    ajax_data = response.json()
+                    
+                    if not ajax_data.get('success'):
+                        self.logger.warning(f"AJAX request failed for page {current_page}")
+                        has_more_pages = False
+                        break
+                    
+                    # Extract property listings HTML from response
+                    properties_html = ajax_data.get('data', {}).get('elements', '')
+                    if not properties_html:
+                        self.logger.info("No more properties found")
+                        has_more_pages = False
+                        break
+                    
+                    # Parse the HTML to extract individual property links
+                    properties_soup = BeautifulSoup(properties_html, 'html.parser')
+                    property_links = []
+                    
+                    # Find all property links in the returned HTML
+                    # Tettorosso property links have class 'imm__link' or similar
+                    link_elements = properties_soup.find_all('a', href=True)
+                    
+                    for element in link_elements:
+                        href = element.get('href', '')
+                        # Ensure href is a string
+                        if not isinstance(href, str):
+                            continue
+                            
+                        # Filter for individual property detail pages
+                        # Tettorosso uses /immobili/<property-slug>/ pattern
+                        if href and '/immobili/' in href and href.count('/') >= 3:
+                            # Skip the main listings page and pagination links
+                            if (href.endswith('/immobili/') or 
+                                '/immobili/page/' in href or 
+                                href == '/immobili/'):
+                                continue
+                            
+                            # Make absolute URL
+                            if not href.startswith('http'):
+                                href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
+                            
+                            if href not in property_links:
+                                property_links.append(href)
+                    
+                    self.logger.info(f"Found {len(property_links)} property links on page {current_page}")
+                    
+                    if not property_links:
+                        has_more_pages = False
+                        break
+                    
+                    # Scrape each property page
+                    for link in property_links:
+                        try:
+                            property_html = self.fetch_url(link)
+                            if property_html:
+                                # Save HTML to file for reference
+                                file_name = f"tettorosso_{hash(link)}.html"
+                                file_path = DOWNLOAD_DIR / file_name
+                                self.save_html(property_html, file_path)
+                                
+                                # Parse the HTML
+                                listing = self._parse_html(property_html, link)
+                                if listing:
+                                    listings.append(listing)
+                                    self.logger.info(f"Successfully scraped Tettorosso: {listing.title}")
+                                else:
+                                    self.logger.warning(f"Failed to parse Tettorosso property: {link}")
+                            else:
+                                self.logger.warning(f"Failed to fetch Tettorosso property page: {link}")
                         
-                        # Parse the HTML
-                        listing = self._parse_html(property_html, link)
-                        if listing:
-                            listings.append(listing)
-                            self.logger.info(f"Successfully scraped Tettorosso: {listing.title}")
-                        else:
-                            self.logger.warning(f"Failed to parse Tettorosso property: {link}")
-                    else:
-                        self.logger.warning(f"Failed to fetch Tettorosso property page: {link}")
-                
-                except Exception as e:
-                    self.logger.error(f"Error scraping Tettorosso {link}: {e}")
-        
+                        except Exception as e:
+                            self.logger.error(f"Error scraping Tettorosso {link}: {e}")
+                    
+                    # Check if there are more pages
+                    total_pages = ajax_data.get('data', {}).get('pages', 0)
+                    if current_page >= total_pages:
+                        has_more_pages = False
+                        self.logger.info(f"Reached last page ({current_page}/{total_pages})")
+                    
+                    current_page += 1
+                    
+                except requests.exceptions.RequestException as e:
+                    self.logger.error(f"AJAX request failed for page {current_page}: {e}")
+                    has_more_pages = False
+                    break
+                    
         except Exception as e:
             self.logger.error(f"Fatal error in Tettorosso scraping: {e}")
         
