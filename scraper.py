@@ -7,7 +7,7 @@ from datetime import datetime
 import re
 
 from models import Listing, Contract, Riscaldamento
-from config import USER_AGENT, REQUEST_TIMEOUT, MAX_RETRIES
+from config import USER_AGENT, REQUEST_TIMEOUT, MAX_RETRIES, DOWNLOAD_DIR
 
 
 class BaseScraper:
@@ -276,8 +276,58 @@ class TettorossoScraper(BaseScraper):
             text = td.get_text(strip=True)
             if text.startswith('iv'):
                 return text
-          
+           
         return None
+
+    def scrape_live_listings(self) -> List[Listing]:
+        """Scrape live listings from the website."""
+        listings = []
+        
+        # Fetch the main listings page
+        listings_page_url = f"{self.base_url}/immobili/"
+        html_content = self.fetch_url(listings_page_url)
+        
+        if not html_content:
+            self.logger.error(f"Failed to fetch listings page: {listings_page_url}")
+            return listings
+            
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Find all property listing links
+        property_links = []
+        listing_elements = soup.find_all('a', href=True)
+        
+        for element in listing_elements:
+            href = element.get('href', '')
+            # Filter for property detail pages
+            # Tettorosso uses /immobili/<property-name>-iv<id>/ pattern
+            if href and '/immobili/' in href and 'iv' in href and href not in property_links:
+                if not href.startswith('http'):
+                    href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
+                property_links.append(href)
+        
+        self.logger.info(f"Found {len(property_links)} property links to scrape")
+        
+        # Scrape each property page
+        for link in property_links:
+            try:
+                property_html = self.fetch_url(link)
+                if property_html:
+                    # Save HTML to file for reference
+                    file_name = f"tettorosso_{hash(link)}.html"
+                    file_path = DOWNLOAD_DIR / file_name
+                    self.save_html(property_html, file_path)
+                    
+                    # Parse the HTML
+                    listing = self._parse_html(property_html, link)
+                    if listing:
+                        listings.append(listing)
+                        self.logger.info(f"Successfully scraped: {listing.title}")
+                
+            except Exception as e:
+                self.logger.error(f"Error scraping {link}: {e}")
+        
+        return listings
 
 
 class GalileoScraper(BaseScraper):
@@ -588,6 +638,83 @@ class GalileoScraper(BaseScraper):
                     return span_tag.get_text(strip=True)
         
         return None
+
+    def scrape_live_listings(self) -> List[Listing]:
+        """Scrape live listings from the website."""
+        listings = []
+        
+        # Scrape both sell and rent listings
+        listing_types = ['immobile', 'affitto']
+        
+        for listing_type in listing_types:
+            page = 1
+            has_more_pages = True
+            
+            while has_more_pages:
+                # Fetch the listings page
+                listings_page_url = f"{self.base_url}/{listing_type}/"
+                if page > 1:
+                    listings_page_url = f"{self.base_url}/{listing_type}/page/{page}/"
+                
+                self.logger.info(f"Fetching page {page} for {listing_type}")
+                html_content = self.fetch_url(listings_page_url)
+                
+                if not html_content:
+                    self.logger.warning(f"No more pages found for {listing_type}")
+                    has_more_pages = False
+                    break
+                    
+                soup = BeautifulSoup(html_content, 'html.parser')
+                
+                # Find all property listing links
+                property_links = []
+                listing_elements = soup.find_all('a')
+                
+                for element in listing_elements:
+                    href = element.get('href', '')
+                    # Ensure href is a string
+                    if not isinstance(href, str):
+                        continue
+                    # Filter for property detail pages
+                    if href and f'/{listing_type}/' in href and href.count('/') > 2:
+                        if not href.startswith('http'):
+                            href = f"{self.base_url}{href}" if href.startswith('/') else f"{self.base_url}/{href}"
+                        if href not in property_links:
+                            property_links.append(href)
+                
+                if not property_links:
+                    has_more_pages = False
+                    break
+                
+                self.logger.info(f"Found {len(property_links)} property links on page {page}")
+                
+                # Scrape each property page
+                for link in property_links:
+                    try:
+                        property_html = self.fetch_url(link)
+                        if property_html:
+                            # Save HTML to file for reference
+                            file_name = f"galileo_{hash(link)}.html"
+                            file_path = DOWNLOAD_DIR / file_name
+                            self.save_html(property_html, file_path)
+                            
+                            # Parse the HTML
+                            listing = self._parse_html(property_html, link)
+                            if listing:
+                                listings.append(listing)
+                                self.logger.info(f"Successfully scraped: {listing.title}")
+                        
+                    except Exception as e:
+                        self.logger.error(f"Error scraping {link}: {e}")
+                
+                # Check if there are more pages (Galileo uses pagination)
+                next_page_link = soup.find('a', class_='next')
+                if not next_page_link:
+                    has_more_pages = False
+                
+                page += 1
+        
+        return listings
     
     def _clean_price(self, price_str: str) -> float:
         """Clean and convert price string to float."""

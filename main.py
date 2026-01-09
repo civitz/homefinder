@@ -3,6 +3,7 @@
 
 import sys
 import logging
+import argparse
 from pathlib import Path
 from typing import Optional
 
@@ -14,10 +15,13 @@ from app import app
 from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR
 from scraper import TettorossoScraper, GalileoScraper
 from database import DatabaseManager
+from background_scraper import BackgroundScraper
 
 
-def main():
+def main(args=None):
     """Main application entry point."""
+    if args is None:
+        args = parse_arguments()
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -26,10 +30,10 @@ def main():
             logging.StreamHandler()
         ]
     )
-    
+     
     logger = logging.getLogger(__name__)
     logger.info("Starting HomeFinder application...")
-    
+     
     try:
         # Initialize components
         db_manager = DatabaseManager()
@@ -38,42 +42,86 @@ def main():
             GalileoScraper()
         ]
         
+        # Initialize background scraper
+        if args.no_background:
+            logger.info("Background scraping disabled")
+            background_scraper = None
+        else:
+            background_scraper = BackgroundScraper(interval_hours=args.scrape_interval)
+        
         # Create necessary directories
         DOWNLOAD_DIR.mkdir(exist_ok=True)
         
-        # Check if we have example data to work with
-        example_files = list(EXAMPLES_DIR.rglob("*.html"))
-        if example_files:
-            logger.info(f"Found {len(example_files)} example files")
-            
-            # Process example files with appropriate scrapers
-            for example_file in example_files:
-                try:
-                    logger.info(f"Processing example file: {example_file}")
-                    
-                    # Determine which scraper to use based on the file path
-                    if 'tettorossoimmobiliare.it' in str(example_file):
-                        scraper = next(s for s in scrapers if isinstance(s, TettorossoScraper))
-                    elif 'galileoimmobiliare.it' in str(example_file):
-                        scraper = next(s for s in scrapers if isinstance(s, GalileoScraper))
-                    else:
-                        logger.warning(f"Unknown website for file: {example_file}")
-                        continue
-                    
-                    listing = scraper.scrape_html_file(example_file)
-                    if listing:
-                        db_manager.save_listing(listing)
-                        logger.info(f"Successfully processed and saved: {listing.title}")
-                    else:
-                        logger.warning(f"Failed to scrape: {example_file}")
-                except Exception as e:
-                    logger.error(f"Error processing {example_file}: {e}")
+        # Process data based on arguments
+        if args.use_examples:
+            # Check if we have example data to work with
+            example_files = list(EXAMPLES_DIR.rglob("*.html"))
+            if example_files:
+                logger.info(f"Found {len(example_files)} example files")
+                 
+                # Process example files with appropriate scrapers
+                for example_file in example_files:
+                    try:
+                        logger.info(f"Processing example file: {example_file}")
+                         
+                        # Determine which scraper to use based on the file path
+                        if 'tettorossoimmobiliare.it' in str(example_file):
+                            scraper = next(s for s in scrapers if isinstance(s, TettorossoScraper))
+                        elif 'galileoimmobiliare.it' in str(example_file):
+                            scraper = next(s for s in scrapers if isinstance(s, GalileoScraper))
+                        else:
+                            logger.warning(f"Unknown website for file: {example_file}")
+                            continue
+                         
+                        listing = scraper.scrape_html_file(example_file)
+                        if listing:
+                            db_manager.save_listing(listing)
+                            logger.info(f"Successfully processed and saved: {listing.title}")
+                        else:
+                            logger.warning(f"Failed to scrape: {example_file}")
+                    except Exception as e:
+                        logger.error(f"Error processing {example_file}: {e}")
+            else:
+                logger.warning("No example files found")
         else:
-            logger.warning("No example files found")
+            # Run initial live scraping if not using examples
+            if not args.use_examples and background_scraper:
+                logger.info("Running initial live scraping...")
+                # This will be handled by the background scraper's start() method
+            elif not args.use_examples and not background_scraper:
+                logger.info("Running single live scraping pass...")
+                # Run a single scraping pass
+                for scraper in scrapers:
+                    try:
+                        listings = scraper.scrape_live_listings()
+                        if listings:
+                            saved_count = db_manager.save_listings(listings)
+                            logger.info(f"Successfully scraped and saved {saved_count} listings from {scraper.name}")
+                    except Exception as e:
+                        logger.error(f"Error in initial scraping for {scraper.name}: {e}")
         
-        # Start Flask application
+        # Start Flask application first (non-blocking in debug mode)
         logger.info("Starting Flask web server...")
-        app.run(host='0.0.0.0', port=5000, debug=True)
+        
+        # Start background scraper after Flask is ready
+        if background_scraper:
+            # Use a separate thread to start the background scraper
+            import threading
+            def start_background():
+                # Give Flask a moment to start
+                import time
+                time.sleep(2)
+                background_scraper.start()
+            
+            bg_thread = threading.Thread(target=start_background, daemon=True)
+            bg_thread.start()
+        
+        try:
+            app.run(host='0.0.0.0', port=5000, debug=True)
+        finally:
+            # Cleanup on exit
+            if background_scraper:
+                background_scraper.stop()
         
     except KeyboardInterrupt:
         logger.info("Shutting down HomeFinder application...")
@@ -82,5 +130,32 @@ def main():
         sys.exit(1)
 
 
+def parse_arguments(argv=None):
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='HomeFinder - Real Estate Scraper and Search Tool')
+    parser.add_argument(
+        '--use-examples',
+        action='store_true',
+        help='Use example files instead of live scraping'
+    )
+    parser.add_argument(
+        '--no-background',
+        action='store_true',
+        help='Disable background scraping (live scraping only runs once at startup)'
+    )
+    parser.add_argument(
+        '--scrape-interval',
+        type=int,
+        default=1,
+        help='Background scraping interval in hours (default: 1)'
+    )
+    
+    if argv is None:
+        return parser.parse_args()
+    else:
+        return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
-    main()
+    args = parse_arguments()
+    main(args)
