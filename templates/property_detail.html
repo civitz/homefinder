@@ -18,62 +18,247 @@
 <div class="row">
     <div class="col-md-8">
         <div class="card mb-4">
-            <div class="card-body">
-                <h1 class="card-title display-5">{{ property.title }}</h1>
-                <p class="property-price h3">€ {{ "{:,}".format(property.price|int) }}</p>
+                 <div class="card-body">
+                     <!-- Read-only view -->
+                     <div id="readOnlyView">
+                         <h1 class="card-title display-5">{{ property.title }}</h1>
+                         <p class="property-price h3">€ {{ "{:,}".format(property.price|int) }}</p>
+                         
+                         <div class="mb-3">
+                             <span class="badge bg-primary">For {{ property.contract_type }}</span>
+                             <span class="badge bg-secondary">{{ property.city }} {% if property.neighborhood %}| {{ property.neighborhood }}{% endif %}</span>
+                         </div>
+                     </div>
+                     
+                     <!-- Edit mode view (hidden by default) -->
+                     <div id="editView" style="display: none;">
+                         <div class="mb-3">
+                             <label for="editTitle" class="form-label">Title</label>
+                             <input type="text" class="form-control" id="editTitle" value="{{ property.title }}">
+                         </div>
+                         
+                         <div class="mb-3">
+                             <label for="editPrice" class="form-label">Price (€)</label>
+                             <input type="number" class="form-control" id="editPrice" value="{{ property.price|int }}">
+                         </div>
+                         
+                         <div class="mb-3">
+                             <label for="editContractType" class="form-label">Contract Type</label>
+                             <select class="form-select" id="editContractType">
+                                 <option value="sell" {% if property.contract_type == 'sell' %}selected{% endif %}>Sell</option>
+                                 <option value="rent" {% if property.contract_type == 'rent' %}selected{% endif %}>Rent</option>
+                             </select>
+                         </div>
+                         
+                         <div class="mb-3">
+                             <label for="editCity" class="form-label">City</label>
+                             <input type="text" class="form-control" id="editCity" value="{{ property.city }}">
+                         </div>
+                         
+                         <div class="mb-3">
+                             <label for="editNeighborhood" class="form-label">Neighborhood</label>
+                             <input type="text" class="form-control" id="editNeighborhood" value="{{ property.neighborhood or '' }}">
+                         </div>
+                     </div>
                 
-                <div class="mb-3">
-                    <span class="badge bg-primary">For {{ property.contract_type }}</span>
-                    <span class="badge bg-secondary">{{ property.city }} {% if property.neighborhood %}| {{ property.neighborhood }}{% endif %}</span>
-                </div>
-                
-                <div class="property-features mb-4">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <p><strong>Bedrooms:</strong> {{ property.bedrooms or 'N/A' }}</p>
-                        </div>
-                        <div class="col-md-3">
-                            <p><strong>Bathrooms:</strong> {{ property.bathrooms or 'N/A' }}</p>
-                        </div>
-                        <div class="col-md-3">
-                            <p><strong>Size:</strong> {{ property.square_meters or 'N/A' }} m²</p>
-                        </div>
-                        <div class="col-md-3">
-                            <p><strong>Year Built:</strong> {{ property.year_built or 'N/A' }}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-3">
-                            <p><strong>Floor:</strong> {{ property.floor or 'N/A' }}</p>
-                        </div>
-                        <div class="col-md-3">
-                            <p><strong>Elevator:</strong> {{ 'Yes' if property.has_elevator else 'No' if property.has_elevator is not none else 'N/A' }}</p>
-                        </div>
-                        <div class="col-md-3">
-                            <p><strong>Heating:</strong> {{ property.heating or 'N/A' }}</p>
-                        </div>
-                        <div class="col-md-3">
-                            <p><strong>Energy Class:</strong> {{ property.energy_class or 'N/A' }}</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="property-description">
-                    <h4>Description</h4>
-                    <p>{{ property.description or 'No description available.' }}</p>
-                </div>
-                
-                 {% if property.features and property.features|length > 0 %}
-                 <div class="property-features mt-4">
-                     <h4>Features</h4>
-                     <ul class="list-unstyled">
-                         {% for feature in property.features %}
-                         <li class="mb-2"><span class="badge bg-light text-dark">{{ feature }}</span></li>
-                         {% endfor %}
-                     </ul>
+                 <!-- Read-only features -->
+                 <div id="readOnlyFeatures">
+                     <div class="property-features mb-4">
+                         <div class="row">
+                             <div class="col-md-3">
+                                 <p><strong>Bedrooms:</strong> {{ property.bedrooms or 'N/A' }}</p>
+                             </div>
+                             <div class="col-md-3">
+                                 <p><strong>Bathrooms:</strong> {{ property.bathrooms or 'N/A' }}</p>
+                             </div>
+                             <div class="col-md-3">
+                                 <p><strong>Size:</strong> {{ property.square_meters or 'N/A' }} m²</p>
+                             </div>
+                             <div class="col-md-3">
+                                 <p><strong>Year Built:</strong> {{ property.year_built or 'N/A' }}</p>
+                             </div>
+                         </div>
+                         
+                         <div class="row">
+                             <div class="col-md-3">
+                                 <p><strong>Floor:</strong> {{ property.floor or 'N/A' }}</p>
+                             </div>
+                             <div class="col-md-3">
+                                 <p><strong>Elevator:</strong> {{ 'Yes' if property.has_elevator else 'No' if property.has_elevator is not none else 'N/A' }}</p>
+                             </div>
+                             <div class="col-md-3">
+                                 <p><strong>Heating:</strong> {{ property.heating or 'N/A' }}</p>
+                             </div>
+                             <div class="col-md-3">
+                                 <p><strong>Energy Class:</strong> {{ property.energy_class or 'N/A' }}</p>
+                             </div>
+                         </div>
+                     </div>
                  </div>
-                 {% endif %}
+                 
+                 <!-- Editable features -->
+                 <div id="editFeatures" style="display: none;">
+                     <div class="property-features mb-4">
+                         <div class="row">
+                             <div class="col-md-3">
+                                 <label for="editBedrooms" class="form-label">Bedrooms</label>
+                                 <input type="number" class="form-control" id="editBedrooms" value="{{ property.bedrooms or '' }}">
+                             </div>
+                             <div class="col-md-3">
+                                 <label for="editBathrooms" class="form-label">Bathrooms</label>
+                                 <input type="number" class="form-control" id="editBathrooms" value="{{ property.bathrooms or '' }}">
+                             </div>
+                             <div class="col-md-3">
+                                 <label for="editSquareMeters" class="form-label">Size (m²)</label>
+                                 <input type="number" class="form-control" id="editSquareMeters" value="{{ property.square_meters or '' }}">
+                             </div>
+                             <div class="col-md-3">
+                                 <label for="editYearBuilt" class="form-label">Year Built</label>
+                                 <input type="number" class="form-control" id="editYearBuilt" value="{{ property.year_built or '' }}">
+                             </div>
+                         </div>
+                         
+                         <div class="row">
+                             <div class="col-md-3">
+                                 <label for="editFloor" class="form-label">Floor</label>
+                                 <input type="text" class="form-control" id="editFloor" value="{{ property.floor or '' }}">
+                             </div>
+                             <div class="col-md-3">
+                                 <label for="editHasElevator" class="form-label">Elevator</label>
+                                 <select class="form-select" id="editHasElevator">
+                                     <option value="" {% if property.has_elevator is none %}selected{% endif %}>N/A</option>
+                                     <option value="true" {% if property.has_elevator == true %}selected{% endif %}>Yes</option>
+                                     <option value="false" {% if property.has_elevator == false %}selected{% endif %}>No</option>
+                                 </select>
+                             </div>
+                             <div class="col-md-3">
+                                 <label for="editHeating" class="form-label">Heating</label>
+                                 <select class="form-select" id="editHeating">
+                                     <option value="" {% if not property.heating %}selected{% endif %}>N/A</option>
+                                     <option value="autonomous" {% if property.heating == 'autonomous' %}selected{% endif %}>Autonomous</option>
+                                     <option value="centralized" {% if property.heating == 'centralized' %}selected{% endif %}>Centralized</option>
+                                     <option value="unknown" {% if property.heating == 'unknown' %}selected{% endif %}>Unknown</option>
+                                 </select>
+                             </div>
+                             <div class="col-md-3">
+                                 <label for="editEnergyClass" class="form-label">Energy Class</label>
+                                 <input type="text" class="form-control" id="editEnergyClass" value="{{ property.energy_class or '' }}">
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+                
+                 <!-- Read-only description -->
+                 <div id="readOnlyDescription">
+                     <div class="property-description">
+                         <h4>Description</h4>
+                         <p>{{ property.description or 'No description available.' }}</p>
+                     </div>
+                 </div>
+                 
+                 <!-- Editable description -->
+                 <div id="editDescription" style="display: none;">
+                     <div class="property-description">
+                         <h4>Description</h4>
+                         <textarea class="form-control" id="editDescriptionText" rows="5">{{ property.description or '' }}</textarea>
+                     </div>
+                 </div>
+                
+                 <!-- Read-only features list -->
+                 <div id="readOnlyFeaturesList">
+                     {% if property.features and property.features|length > 0 %}
+                     <div class="property-features mt-4">
+                         <h4>Features</h4>
+                         <ul class="list-unstyled">
+                             {% for feature in property.features %}
+                             <li class="mb-2"><span class="badge bg-light text-dark">{{ feature }}</span></li>
+                             {% endfor %}
+                         </ul>
+                     </div>
+                     {% endif %}
+                 </div>
+                 
+                 <!-- Editable features -->
+                 <div id="editFeaturesList" style="display: none;">
+                     <div class="property-features mt-4">
+                         <h4>Features</h4>
+                         <input type="text" class="form-control" id="editFeaturesText" 
+                                placeholder="Enter features separated by commas" 
+                                value="{{ property.features|join(', ') if property.features else '' }}">
+                     </div>
+                     
+                     <div class="row mt-3">
+                         <div class="col-md-4">
+                             <label for="editAddress" class="form-label">Address</label>
+                             <input type="text" class="form-control" id="editAddress" value="{{ property.address or '' }}">
+                         </div>
+                         <div class="col-md-4">
+                             <label for="editRooms" class="form-label">Rooms</label>
+                             <input type="number" class="form-control" id="editRooms" value="{{ property.rooms or '' }}">
+                         </div>
+                         <div class="col-md-4">
+                             <label for="editEnergyConsumption" class="form-label">Energy Consumption</label>
+                             <input type="number" step="0.1" class="form-control" id="editEnergyConsumption" value="{{ property.energy_consumption or '' }}">
+                         </div>
+                     </div>
+                     
+                     <div class="row mt-3">
+                         <div class="col-md-3">
+                             <div class="form-check">
+                                 <input class="form-check-input" type="checkbox" id="editHasAirConditioning" {% if property.has_air_conditioning %}checked{% endif %}>
+                                 <label class="form-check-label" for="editHasAirConditioning">
+                                     Air Conditioning
+                                 </label>
+                             </div>
+                         </div>
+                         <div class="col-md-3">
+                             <div class="form-check">
+                                 <input class="form-check-input" type="checkbox" id="editHasGarage" {% if property.has_garage %}checked{% endif %}>
+                                 <label class="form-check-label" for="editHasGarage">
+                                     Garage
+                                 </label>
+                             </div>
+                         </div>
+                         <div class="col-md-3">
+                             <div class="form-check">
+                                 <input class="form-check-input" type="checkbox" id="editIsFurnished" {% if property.is_furnished %}checked{% endif %}>
+                                 <label class="form-check-label" for="editIsFurnished">
+                                     Furnished
+                                 </label>
+                             </div>
+                         </div>
+                         <div class="col-md-3">
+                             <label for="editPublicationDate" class="form-label">Publication Date</label>
+                             <input type="datetime-local" class="form-control" id="editPublicationDate" 
+                                    value="{{ property.publication_date.isoformat() if property.publication_date else '' }}">
+                         </div>
+                     </div>
+                     
+                     <div class="row mt-3">
+                         <div class="col-md-12">
+                             <label for="editAgencyListingId" class="form-label">Agency Listing ID</label>
+                             <input type="text" class="form-control" id="editAgencyListingId" value="{{ property.agency_listing_id or '' }}">
+                         </div>
+                     </div>
+                     
+                     <div class="row mt-3">
+                         <div class="col-md-12">
+                             <label for="editRawHtmlFile" class="form-label">Raw HTML File</label>
+                             <input type="text" class="form-control" id="editRawHtmlFile" value="{{ property.raw_html_file or '' }}">
+                         </div>
+                     </div>
+                     
+                     <div class="mt-4 d-grid gap-2">
+                         <button class="btn btn-primary" onclick="savePropertyEdits({{ property.id }})" id="saveEditsBtnBottom">
+                             Save Changes
+                         </button>
+                         <button class="btn btn-secondary" onclick="cancelPropertyEdits()" id="cancelEditsBtnBottom">
+                             Cancel
+                         </button>
+                     </div>
+                     
+                 </div>
+                 </div>
              </div>
          </div>
          
@@ -92,9 +277,20 @@
     
     <div class="col-md-4">
         <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Property Details</h5>
-                <dl class="row">
+                 <div class="card-body">
+                     <h5 class="card-title">Property Details</h5>
+                     
+                     <!-- Edit mode controls (hidden by default) -->
+                     <div id="editControls" style="display: none;" class="mb-3">
+                         <button class="btn btn-primary btn-sm" onclick="savePropertyEdits({{ property.id }})" id="saveEditsBtn">
+                             Save Changes
+                         </button>
+                         <button class="btn btn-secondary btn-sm" onclick="cancelPropertyEdits()" id="cancelEditsBtn">
+                             Cancel
+                         </button>
+                     </div>
+                     
+                     <dl class="row">
                     <dt class="col-sm-6">Agency:</dt>
                     <dd class="col-sm-6">{{ property.agency or 'N/A' }}</dd>
                     
@@ -104,9 +300,12 @@
                     <dt class="col-sm-6">Scraped On:</dt>
                     <dd class="col-sm-6">{{ property.scrape_date or 'N/A' }}</dd>
                     
-                    <dt class="col-sm-6">Published On:</dt>
-                    <dd class="col-sm-6">{{ property.publication_date or 'N/A' }}</dd>
-                </dl>
+                     <dt class="col-sm-6">Published On:</dt>
+                     <dd class="col-sm-6">{{ property.publication_date or 'N/A' }}</dd>
+                     
+                     <dt class="col-sm-6">Last Modified:</dt>
+                     <dd class="col-sm-6">{{ property.modify_date or 'Never' }}</dd>
+                 </dl>
                 
                   <div class="mt-4 d-grid gap-2">
                       <a href="{{ property.url }}" class="btn btn-primary" target="_blank">
@@ -115,10 +314,13 @@
                       <button class="btn btn-secondary" onclick="loadOriginalListingIframe('{{ property.url }}')">
                           Open Original Listing Below
                       </button>
-                      <button class="btn btn-success" onclick="saveAsExample({{ property.id }})" id="saveExampleBtn">
-                          Save as Example
-                      </button>
-                  </div>
+                       <button class="btn btn-success" onclick="saveAsExample({{ property.id }})" id="saveExampleBtn">
+                           Save as Example
+                       </button>
+                       <button class="btn btn-warning" onclick="toggleEditMode()" id="editBtn">
+                           Edit Listing
+                       </button>
+                   </div>
             </div>
         </div>
         

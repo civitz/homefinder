@@ -24,7 +24,7 @@ class DatabaseManager:
                 
                 # Create listings table
                 cursor.execute('''
-                         CREATE TABLE IF NOT EXISTS listings (
+                     CREATE TABLE IF NOT EXISTS listings (
                          id INTEGER PRIMARY KEY AUTOINCREMENT,
                          title TEXT NOT NULL,
                          agency TEXT NOT NULL,
@@ -52,9 +52,10 @@ class DatabaseManager:
                          scrape_date TEXT NOT NULL,
                          publication_date TEXT,
                          raw_html_file TEXT,
-                         agency_listing_id TEXT
+                         agency_listing_id TEXT,
+                         modify_date TEXT
                      )
-                ''')
+                 ''')
                 
                 # Create indexes for better search performance
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_city ON listings(city)')
@@ -212,7 +213,64 @@ class DatabaseManager:
             if self.save_listing(listing):
                 success_count += 1
         return success_count
-    
+
+    def update_listing(self, listing_id: int, update_data: Dict[str, Any]) -> bool:
+        """Update a listing by ID with transaction support."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Begin transaction
+                cursor.execute('BEGIN TRANSACTION')
+                
+                # Build update query dynamically based on provided fields
+                update_fields = []
+                update_values = []
+                
+                # Define which fields are editable (excluding URL, agency, scrape_date, ID)
+                editable_fields = [
+                    'title', 'description', 'contract_type', 'price', 'city', 'neighborhood',
+                    'address', 'rooms', 'bedrooms', 'bathrooms', 'square_meters', 'floor',
+                    'year_built', 'has_elevator', 'heating', 'has_air_conditioning', 'has_garage',
+                    'is_furnished', 'energy_class', 'energy_consumption', 'features',
+                    'publication_date', 'raw_html_file', 'agency_listing_id'
+                ]
+                
+                # Add fields that have values in update_data
+                for field in editable_fields:
+                    if field in update_data and update_data[field] is not None:
+                        update_fields.append(f"{field} = ?")
+                        update_values.append(update_data[field])
+                
+                # Add modify_date to track when the listing was edited
+                update_fields.append("modify_date = ?")
+                update_values.append(datetime.now().isoformat())
+                
+                if not update_fields:
+                    # No fields to update
+                    cursor.execute('ROLLBACK')
+                    return False
+                
+                # Build and execute update query
+                update_query = f"""
+                    UPDATE listings 
+                    SET {', '.join(update_fields)}
+                    WHERE id = ?
+                """
+                update_values.append(listing_id)
+                
+                cursor.execute(update_query, update_values)
+                
+                # Commit transaction
+                cursor.execute('COMMIT')
+                
+                self.logger.info(f"Updated listing ID {listing_id}")
+                return True
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error updating listing {listing_id}: {e}")
+            return False
+
     def get_listing_by_url(self, url: str) -> Optional[Listing]:
         """Get listing by URL."""
         try:
@@ -303,35 +361,36 @@ class DatabaseManager:
         """Convert database row to Listing object."""
         # Map row to listing fields
         listing_data = {
-            'id': row[0],
-            'title': row[1],
-            'agency': row[2],
-            'url': row[3],
-            'description': row[4],
-            'contract_type': row[5],
-            'price': row[6],
-            'city': row[7],
-            'neighborhood': row[8],
-            'address': row[9],
-            'rooms': row[10],
-            'bedrooms': row[11],
-            'bathrooms': row[12],
-            'square_meters': row[13],
-            'floor': row[14],
-            'year_built': row[15],
-            'has_elevator': row[16],
-            'heating': row[17],
-            'has_air_conditioning': row[18],
-            'has_garage': row[19],
-            'is_furnished': row[20],
-            'energy_class': row[21],
-            'energy_consumption': row[22],
-            'features': row[23],
-            'scrape_date': row[24],
-            'publication_date': row[25],
-            'raw_html_file': row[26],
-            'agency_listing_id': row[27]
-        }
+             'id': row[0],
+             'title': row[1],
+             'agency': row[2],
+             'url': row[3],
+             'description': row[4],
+             'contract_type': row[5],
+             'price': row[6],
+             'city': row[7],
+             'neighborhood': row[8],
+             'address': row[9],
+             'rooms': row[10],
+             'bedrooms': row[11],
+             'bathrooms': row[12],
+             'square_meters': row[13],
+             'floor': row[14],
+             'year_built': row[15],
+             'has_elevator': row[16],
+             'heating': row[17],
+             'has_air_conditioning': row[18],
+             'has_garage': row[19],
+             'is_furnished': row[20],
+             'energy_class': row[21],
+             'energy_consumption': row[22],
+             'features': row[23],
+             'scrape_date': row[24],
+             'publication_date': row[25],
+             'raw_html_file': row[26],
+             'agency_listing_id': row[27],
+             'modify_date': row[28]
+         }
         
         # Convert features from string back to list
         if listing_data['features']:

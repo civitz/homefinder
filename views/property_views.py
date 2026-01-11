@@ -115,6 +115,7 @@ def property_detail(property_id: int):
                 'features': property_data.features,
                 'scrape_date': property_data.scrape_date,
                 'publication_date': property_data.publication_date,
+                'modify_date': property_data.modify_date,
                 'agency': property_data.agency,
                 'contract_type': property_data.contract_type.value,
                 'url': property_data.url,
@@ -128,6 +129,110 @@ def property_detail(property_id: int):
     except Exception as e:
         current_app.logger.error(f"Error in property detail: {e}")
         return "Error loading property details", 500
+
+
+@property_bp.route('/<int:property_id>', methods=['PUT'])
+def update_property(property_id: int):
+    """Update a property listing."""
+    try:
+        from database import DatabaseManager
+        from datetime import datetime
+        
+        db_manager = DatabaseManager()
+        
+        # Get JSON data from request
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Validate that we have at least some data to update
+        if not data or len(data) == 0:
+            return jsonify({
+                "success": False,
+                "error": "No update data provided"
+            }), 400
+        
+        # Convert data types appropriately
+        update_data = {}
+        
+        # Handle string fields
+        string_fields = ['title', 'description', 'city', 'neighborhood', 'address', 'floor', 
+                        'energy_class', 'contract_type', 'heating', 'features', 'raw_html_file', 'agency_listing_id']
+        for field in string_fields:
+            if field in data:
+                update_data[field] = str(data[field]) if data[field] is not None else None
+        
+        # Handle numeric fields
+        numeric_fields = ['price', 'rooms', 'bedrooms', 'bathrooms', 'square_meters', 'year_built', 'energy_consumption']
+        for field in numeric_fields:
+            if field in data:
+                try:
+                    if data[field] is not None:
+                        if field in ['price', 'energy_consumption']:
+                            update_data[field] = float(data[field])
+                        else:
+                            update_data[field] = int(data[field])
+                except (ValueError, TypeError):
+                    # Skip invalid numeric values
+                    continue
+        
+        # Handle boolean fields
+        boolean_fields = ['has_elevator', 'has_air_conditioning', 'has_garage', 'is_furnished']
+        for field in boolean_fields:
+            if field in data:
+                update_data[field] = bool(data[field]) if data[field] is not None else None
+        
+        # Handle date fields
+        if 'publication_date' in data and data['publication_date']:
+            try:
+                update_data['publication_date'] = datetime.fromisoformat(data['publication_date']).isoformat()
+            except (ValueError, TypeError):
+                # Skip invalid date values
+                pass
+        
+        # Update the listing in database
+        success = db_manager.update_listing(property_id, update_data)
+        
+        if not success:
+            return jsonify({
+                "success": False,
+                "error": "Failed to update property"
+            }), 500
+        
+        # After successful update, automatically save as example
+        # Fetch the updated property data
+        updated_property = db_manager.get_listing_by_id(property_id)
+        if updated_property:
+            # Convert to dict and call save_as_example endpoint
+            property_dict = updated_property.to_dict()
+            
+            # Fetch original HTML content using BaseScraper
+            from scraper import BaseScraper
+            scraper = BaseScraper(
+                base_url=property_dict['url'],
+                name="example_saver"
+            )
+            html_content = scraper.fetch_url(property_dict['url'])
+            
+            if html_content:
+                from example_utils import ExampleUtils
+                example_utils = ExampleUtils()
+                example_utils.save_as_example(html_content, property_dict)
+        
+        return jsonify({
+            "success": True,
+            "message": "Property updated successfully"
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating property {property_id}: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
 @property_bp.route('/api/search')

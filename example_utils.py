@@ -23,8 +23,8 @@ class ExampleUtils:
         try:
             parsed_url = urlparse(url)
             if parsed_url.netloc:
-                # Remove www. prefix if present
-                website = parsed_url.netloc.replace('www.', '')
+                # Keep the full domain including www. prefix
+                website = parsed_url.netloc
                 return website
             return None
         except Exception as e:
