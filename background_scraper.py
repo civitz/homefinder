@@ -18,11 +18,12 @@ background_scraper_instance = None
 class BackgroundScraper:
     """Background service for periodic scraping of real estate websites."""
     
-    def __init__(self, interval_hours: int = 1):
+    def __init__(self, interval_hours: int = 1, request_delay_ms: Optional[int] = None):
         """Initialize the background scraper.
         
         Args:
             interval_hours: How often to run the scraping (in hours)
+            request_delay_ms: Delay between HTTP requests in milliseconds
         """
         self.interval_hours = interval_hours
         self.interval_seconds = interval_hours * 3600
@@ -32,8 +33,8 @@ class BackgroundScraper:
         
         # Initialize scrapers and database
         self.scrapers = [
-            TettorossoScraper(),
-            GalileoScraper()
+            TettorossoScraper(request_delay_ms=request_delay_ms),
+            GalileoScraper(request_delay_ms=request_delay_ms)
         ]
         self.db_manager = DatabaseManager()
     

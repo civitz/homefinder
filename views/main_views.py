@@ -20,7 +20,24 @@ def about():
 @main_bp.route('/stats')
 def stats():
     """Statistics page route."""
-    return render_template('stats.html')
+    try:
+        from database import DatabaseManager
+        db_manager = DatabaseManager()
+        stats = db_manager.get_stats()
+        price_distribution = db_manager.get_price_distribution()
+         
+        return render_template('stats.html', stats=stats, price_distribution=price_distribution)
+    except Exception as e:
+        current_app.logger.error(f"Error loading stats page: {e}")
+        return render_template('stats.html', stats={
+            'total_properties': 0,
+            'average_price': 0,
+            'average_size': 0,
+            'last_updated': None
+        }, price_distribution={
+            'sell': {'ranges': [], 'counts': []},
+            'rent': {'ranges': [], 'counts': []}
+        })
 
 
 @main_bp.route('/health')

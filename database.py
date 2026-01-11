@@ -352,26 +352,26 @@ class DatabaseManager:
                 # Get total count
                 cursor.execute('SELECT COUNT(*) FROM listings')
                 total = cursor.fetchone()[0]
-                 
+                  
                 # Get average price
                 cursor.execute('SELECT AVG(price) FROM listings')
                 avg_price = cursor.fetchone()[0] or 0
-                 
+                  
                 # Get average size
                 cursor.execute('SELECT AVG(square_meters) FROM listings WHERE square_meters IS NOT NULL')
                 avg_size = cursor.fetchone()[0] or 0
-                 
+                  
                 # Get last updated
                 cursor.execute('SELECT MAX(scrape_date) FROM listings')
                 last_updated = cursor.fetchone()[0]
-                 
+                  
                 return {
                     'total_properties': total,
                     'average_price': round(avg_price, 2),
                     'average_size': round(avg_size, 2),
                     'last_updated': last_updated
                 }
-                 
+                  
         except sqlite3.Error as e:
             self.logger.error(f"Error getting stats: {e}")
             return {
@@ -379,6 +379,62 @@ class DatabaseManager:
                 'average_price': 0,
                 'average_size': 0,
                 'last_updated': None
+            }
+
+    def get_price_distribution(self) -> Dict[str, Any]:
+        """Get price distribution data for histogram."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Define price ranges for sell properties (in euros)
+                sell_ranges = [
+                    (0, 50000), (50000, 100000), (100000, 150000), (150000, 200000),
+                    (200000, 250000), (250000, 300000), (300000, 500000), (500000, 1000000)
+                ]
+                
+                # Define price ranges for rent properties (in euros)
+                rent_ranges = [
+                    (0, 300), (300, 500), (500, 700), (700, 900), (900, 1200),
+                    (1200, 1500), (1500, 2000), (2000, 3000)
+                ]
+                
+                # Get sell price distribution
+                sell_distribution = []
+                for min_price, max_price in sell_ranges:
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM listings 
+                        WHERE contract_type LIKE "%SELL%" AND price >= ? AND price < ?
+                    ''', (min_price, max_price))
+                    count = cursor.fetchone()[0]
+                    sell_distribution.append(count)
+                
+                # Get rent price distribution
+                rent_distribution = []
+                for min_price, max_price in rent_ranges:
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM listings 
+                        WHERE contract_type LIKE "%RENT%" AND price >= ? AND price < ?
+                    ''', (min_price, max_price))
+                    count = cursor.fetchone()[0]
+                    rent_distribution.append(count)
+                
+                return {
+                    'sell': {
+                        'ranges': [f"€{min_price/1000:.0f}k-€{max_price/1000:.0f}k" for min_price, max_price in sell_ranges],
+                        'counts': sell_distribution
+                    },
+                    'rent': {
+                        'ranges': [f"€{min_price}-€{max_price}" for min_price, max_price in rent_ranges],
+                        'counts': rent_distribution
+                    }
+                }
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting price distribution: {e}")
+            return {
+                'sell': {'ranges': [], 'counts': []},
+                'rent': {'ranges': [], 'counts': []}
             }
 
     def clear_all_listings(self) -> int:

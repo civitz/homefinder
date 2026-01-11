@@ -183,10 +183,72 @@ def api_search():
     
     except Exception as e:
         current_app.logger.error(f"Error in API search: {e}")
+        # Get params from request in case of error
+        error_params = request.args.to_dict()
         return jsonify({
             "success": False,
             "error": str(e),
             "results": [],
             "total": 0,
-            "params": params
+            "params": error_params
         })
+
+
+@property_bp.route('/<int:property_id>/save_as_example', methods=['POST'])
+def save_as_example(property_id: int):
+    """Save a property listing as an example."""
+    try:
+        from database import DatabaseManager
+        from scraper import BaseScraper
+        from example_utils import ExampleUtils
+        
+        db_manager = DatabaseManager()
+        example_utils = ExampleUtils()
+        
+        # Fetch property from database by ID
+        property_data = db_manager.get_listing_by_id(property_id)
+        
+        if not property_data:
+            return jsonify({
+                "success": False,
+                "error": "Property not found"
+            }), 404
+            
+        # Convert property data to dictionary format
+        property_dict = property_data.to_dict()
+        
+        # Create a base scraper to fetch the original HTML
+        scraper = BaseScraper(
+            base_url=property_dict['url'],
+            name="example_saver"
+        )
+        
+        # Fetch the original HTML content
+        html_content = scraper.fetch_url(property_dict['url'])
+        
+        if not html_content:
+            return jsonify({
+                "success": False,
+                "error": "Failed to fetch original HTML content"
+            }), 500
+            
+        # Save as example
+        success = example_utils.save_as_example(html_content, property_dict)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Property saved as example successfully"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to save property as example"
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Error saving property as example: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500

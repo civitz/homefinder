@@ -1,4 +1,5 @@
 import requests
+import time
 from bs4 import BeautifulSoup
 from typing import List, Optional, Dict, Any
 from pathlib import Path
@@ -7,17 +8,18 @@ from datetime import datetime
 import re
 
 from models import Listing, Contract, Riscaldamento
-from config import USER_AGENT, REQUEST_TIMEOUT, MAX_RETRIES, DOWNLOAD_DIR
+from config import USER_AGENT, REQUEST_TIMEOUT, MAX_RETRIES, REQUEST_DELAY_MS, DOWNLOAD_DIR
 
 
 class BaseScraper:
     """Base scraper class with common functionality."""
     
-    def __init__(self, base_url: str, name: str):
+    def __init__(self, base_url: str, name: str, request_delay_ms: Optional[int] = None):
         self.base_url = base_url
         self.name = name
         self.logger = logging.getLogger(f"scraper.{name}")
         self.session = requests.Session()
+        self.request_delay_ms = request_delay_ms if request_delay_ms is not None else REQUEST_DELAY_MS
         self.session.headers.update({
             'User-Agent': USER_AGENT,
         })
@@ -28,13 +30,20 @@ class BaseScraper:
             try:
                 response = self.session.get(url, timeout=REQUEST_TIMEOUT)
                 response.raise_for_status()
+                
+                 # Add delay after successful request (except on retry attempts)
+                if attempt == 0 and self.request_delay_ms > 0:
+                    delay_seconds = self.request_delay_ms / 1000.0
+                    self.logger.debug(f"Adding {self.request_delay_ms}ms delay before next request")
+                    time.sleep(delay_seconds)
+                    
                 return response.text
             except requests.exceptions.RequestException as e:
                 if attempt == MAX_RETRIES - 1:
                     self.logger.error(f"Failed to fetch {url} after {MAX_RETRIES} attempts: {e}")
                     return None
                 self.logger.warning(f"Attempt {attempt + 1} failed for {url}: {e}")
-         
+          
         return None
     
     def save_html(self, html_content: str, file_path: Path) -> bool:
@@ -51,10 +60,11 @@ class BaseScraper:
 class TettorossoScraper(BaseScraper):
     """Scraper for Tettorosso Immobiliare website."""
     
-    def __init__(self):
+    def __init__(self, request_delay_ms: Optional[int] = None):
         super().__init__(
             base_url="https://www.tettorossoimmobiliare.it",
-            name="tettorosso"
+            name="tettorosso",
+            request_delay_ms=request_delay_ms
         )
         self.session.headers.update({
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -536,10 +546,11 @@ class TettorossoScraper(BaseScraper):
 class GalileoScraper(BaseScraper):
     """Scraper for Galileo Immobiliare website."""
     
-    def __init__(self):
+    def __init__(self, request_delay_ms: Optional[int] = None):
         super().__init__(
             base_url="https://www.galileoimmobiliare.it",
-            name="galileo"
+            name="galileo",
+            request_delay_ms=request_delay_ms
         )
     
     def scrape_html_file(self, file_path: Path) -> Optional[Listing]:
@@ -828,7 +839,7 @@ class GalileoScraper(BaseScraper):
             strong_tag = div.find('strong')
             if strong_tag and 'ID:' in strong_tag.get_text():
                 # The ID value is in the text after the strong tag
-                id_text = div.get_text(strip=True)
+                id_text = div.get_text().strip()
                 if 'ID:' in id_text:
                     # Extract the ID number after "ID:"
                     id_value = id_text.split('ID:')[-1].strip()
@@ -837,7 +848,7 @@ class GalileoScraper(BaseScraper):
         # Alternative: look for hidden input field with property_id
         property_id_input = soup.find('input', {'name': 'property_id'})
         if property_id_input:
-            return property_id_input.get('value', '').strip()
+            return property_id_input.get('value', '').strip() if property_id_input.get('value') else None
          
         # Alternative: look in details list
         all_li = soup.find_all('li')

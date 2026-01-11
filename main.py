@@ -37,9 +37,13 @@ def main(args=None):
     try:
         # Initialize components
         db_manager = DatabaseManager()
+        
+        # Determine request delay
+        request_delay_ms = args.request_delay if args.request_delay is not None else None
+        
         scrapers = [
-            TettorossoScraper(),
-            GalileoScraper()
+            TettorossoScraper(request_delay_ms=request_delay_ms),
+            GalileoScraper(request_delay_ms=request_delay_ms)
         ]
         
         # Initialize background scraper
@@ -47,7 +51,10 @@ def main(args=None):
             logger.info("Background scraping disabled")
             background_scraper = None
         else:
-            background_scraper = BackgroundScraper(interval_hours=args.scrape_interval)
+            background_scraper = BackgroundScraper(
+                interval_hours=args.scrape_interval,
+                request_delay_ms=request_delay_ms
+            )
             # Set global instance for manual triggering
             from background_scraper import set_background_scraper
             set_background_scraper(background_scraper)
@@ -151,6 +158,12 @@ def parse_arguments(argv=None):
         type=int,
         default=1,
         help='Background scraping interval in hours (default: 1)'
+    )
+    parser.add_argument(
+        '--request-delay',
+        type=int,
+        default=None,
+        help='Delay between HTTP requests in milliseconds (default: from config)'
     )
     
     if argv is None:
