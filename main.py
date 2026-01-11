@@ -95,10 +95,7 @@ def main(args=None):
                 logger.warning("No example files found")
         else:
             # Run initial live scraping if not using examples
-            if not args.use_examples and background_scraper:
-                logger.info("Running initial live scraping...")
-                # This will be handled by the background scraper's start() method
-            elif not args.use_examples and not background_scraper:
+            if not background_scraper:
                 logger.info("Running single live scraping pass...")
                 # Run a single scraping pass
                 for scraper in scrapers:
@@ -116,15 +113,7 @@ def main(args=None):
         # Start background scraper after Flask is ready
         if background_scraper:
             # Use a separate thread to start the background scraper
-            import threading
-            def start_background():
-                # Give Flask a moment to start
-                import time
-                time.sleep(2)
-                background_scraper.start()
-            
-            bg_thread = threading.Thread(target=start_background, daemon=True)
-            bg_thread.start()
+            background_scraper.start()
         
         try:
             app.run(host='0.0.0.0', port=5000, debug=True)

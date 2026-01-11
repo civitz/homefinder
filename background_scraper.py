@@ -127,8 +127,6 @@ class BackgroundScraper:
         self.thread = threading.Thread(target=self._scrape_loop, daemon=True)
         self.thread.start()
         
-        # Run initial scrape immediately
-        self._scrape_all_websites()
     
     def stop(self):
         """Stop the background scraper service."""
@@ -141,7 +139,7 @@ class BackgroundScraper:
         
         # Wait for thread to finish
         if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=60)
+            self.thread.join(timeout=5)
             if self.thread.is_alive():
                 self.logger.warning("Background scraper thread did not stop gracefully")
     
