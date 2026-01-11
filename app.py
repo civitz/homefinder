@@ -1,5 +1,5 @@
 from flask import Flask
-from config import FLASK_SECRET_KEY, FLASK_DEBUG
+from config import FLASK_SECRET_KEY, FLASK_DEBUG, DEBUG
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -11,7 +11,7 @@ def create_app():
     
     # Configure Flask
     app.secret_key = FLASK_SECRET_KEY
-    app.config['DEBUG'] = FLASK_DEBUG
+    app.config['DEBUG'] = DEBUG
     
     # Configure logging
     configure_logging(app)
@@ -47,7 +47,7 @@ def configure_logging(app: Flask):
     
     # Create console handler
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG if app.config['DEBUG'] else logging.INFO)
+    console_handler.setLevel(logging.DEBUG if DEBUG else logging.INFO)
     
     # Create formatter and add it to handlers
     formatter = logging.Formatter(
@@ -63,7 +63,7 @@ def configure_logging(app: Flask):
     
     # Log startup information
     app.logger.info('HomeFinder application starting...')
-    app.logger.info(f'Debug mode: {app.config["DEBUG"]}')
+    app.logger.info(f'Debug mode: {DEBUG}')
 
 
 # Create the application instance
@@ -71,4 +71,4 @@ app = create_app()
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=FLASK_DEBUG)
+    app.run(host='0.0.0.0', port=5000, debug=DEBUG)

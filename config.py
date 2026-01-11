@@ -15,9 +15,12 @@ REQUEST_TIMEOUT: Final[int] = 30
 MAX_RETRIES: Final[int] = 3
 REQUEST_DELAY_MS: Final[int] = 500  # Delay between requests in milliseconds
 
+# Debug configuration
+DEBUG: Final[bool] = os.getenv("DEBUG", "false").lower() == "true"
+
 # Flask configuration
 FLASK_SECRET_KEY: Final[str] = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
-FLASK_DEBUG: Final[bool] = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+FLASK_DEBUG: Final[bool] = os.getenv("FLASK_DEBUG", str(DEBUG)).lower() == "true"
 FLASK_HOST: Final[str] = os.getenv("FLASK_HOST", "0.0.0.0")
 FLASK_PORT: Final[int] = int(os.getenv("FLASK_PORT", "5000"))
 

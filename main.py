@@ -12,7 +12,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from app import app
-from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR
+from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR, DEBUG
 from scraper import TettorossoScraper, GalileoScraper
 from database import DatabaseManager
 from background_scraper import BackgroundScraper
@@ -23,7 +23,7 @@ def main(args=None):
     if args is None:
         args = parse_arguments()
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG if DEBUG else logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler(LOG_FILE),
