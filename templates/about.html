@@ -1,106 +1,153 @@
 {% extends "base.html" %}
 
-{% block title %}HomeFinder - Informazioni{% endblock %}
+{% block title %}About HomeFinder{% endblock %}
 
 {% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="display-4 mb-4">About HomeFinder</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title">What is HomeFinder?</h2>
+                <p class="card-text">
+                    HomeFinder is a web scraping and property finding tool designed to help you 
+                    discover real estate properties in the Padova area. Our application 
+                    automatically scrapes property listings from various websites, extracts 
+                    structured data, and provides a searchable interface to find your dream home.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Quick Facts</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><strong>Technology:</strong> Python, Flask, BeautifulSoup</li>
+                    <li class="mb-2"><strong>Data Sources:</strong> Tettorosso Immobiliare, more coming</li>
+                    <li class="mb-2"><strong>Coverage:</strong> Padova and surrounding areas</li>
+                    <li class="mb-2"><strong>Update Frequency:</strong> Daily</li>
+                    <li class="mb-2"><strong>Open Source:</strong> Yes</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row mb-4">
     <div class="col-md-12">
-        <h1>Informazioni su HomeFinder</h1>
-        <p class="text-muted">Sistema di monitoraggio immobili Tettorosso</p>
-    </div>
-</div>
-
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="card-title">Descrizione del Sistema</h5>
-        <p class="card-text">
-            HomeFinder è un sistema automatizzato per il monitoraggio degli annunci immobiliari 
-            del sito Tettorosso Immobiliare. Il sistema scarica periodicamente il sito web, 
-            estrae le informazioni strutturate dagli annunci e le memorizza in un database locale.
-        </p>
-    </div>
-</div>
-
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="card-title">Funzionalità Principali</h5>
-        <ul class="list-group list-group-flush">
-            <li class="list-group-item">✓ Download automatico del sito web ogni 15-20 minuti</li>
-            <li class="list-group-item">✓ Estrazione strutturata dei dati immobiliari</li>
-            <li class="list-group-item">✓ Archiviazione in database SQLite</li>
-            <li class="list-group-item">✓ Interfaccia web per la visualizzazione e ricerca</li>
-            <li class="list-group-item">✓ Statistiche e analisi dei dati</li>
-            <li class="list-group-item">✓ Gestione degli errori con creazione di annunci minimali</li>
-        </ul>
-    </div>
-</div>
-
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="card-title">Tecnologie Utilizzate</h5>
-        <div class="row">
-            <div class="col-md-6">
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">🐍 Python 3.13</li>
-                    <li class="list-group-item">📦 Flask (web framework)</li>
-                    <li class="list-group-item">🗃️ SQLite (database)</li>
-                    <li class="list-group-item">🤖 BeautifulSoup (HTML parsing)</li>
-                </ul>
-            </div>
-            <div class="col-md-6">
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">🔄 Schedule (scheduling)</li>
-                    <li class="list-group-item">📊 Bootstrap (UI framework)</li>
-                    <li class="list-group-item">🌐 wget (website download)</li>
-                    <li class="list-group-item">📝 Jinja2 (templating)</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="card-title">Struttura del Sistema</h5>
-        <div class="row">
-            <div class="col-md-6">
-                <h6>Componenti Principali</h6>
-                <ul>
-                    <li><strong>downloader.py</strong>: Scarica il sito web</li>
-                    <li><strong>scraper.py</strong>: Estrae i dati strutturati</li>
-                    <li><strong>database.py</strong>: Gestisce il database</li>
-                    <li><strong>webapp.py</strong>: Interfaccia web Flask</li>
-                    <li><strong>config.py</strong>: Configurazione del sistema</li>
-                </ul>
-            </div>
-            <div class="col-md-6">
-                <h6>Dati Estratti</h6>
-                <ul>
-                    <li>Titolo e descrizione</li>
-                    <li>Prezzo e tipo di contratto</li>
-                    <li>Metri quadri e numero di locali</li>
-                    <li>Piano e classe energetica</li>
-                    <li>Caratteristiche (riscaldamento, condizionatore, ecc.)</li>
-                    <li>Data di pubblicazione e scraping</li>
-                </ul>
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title">Features</h2>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="feature-icon text-center mb-3">
+                            <i class="bi bi-search" style="font-size: 2rem;"></i>
+                        </div>
+                        <h4>Advanced Search</h4>
+                        <p>Search by location, price range, size, number of rooms, and more.</p>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="feature-icon text-center mb-3">
+                            <i class="bi bi-database" style="font-size: 2rem;"></i>
+                        </div>
+                        <h4>Comprehensive Data</h4>
+                        <p>Access detailed property information including prices, sizes, features, and energy ratings.</p>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="feature-icon text-center mb-3">
+                            <i class="bi bi-graph-up" style="font-size: 2rem;"></i>
+                        </div>
+                        <h4>Market Statistics</h4>
+                        <p>View market trends, price distributions, and other valuable insights.</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="feature-icon text-center mb-3">
+                            <i class="bi bi-clock" style="font-size: 2rem;"></i>
+                        </div>
+                        <h4>Automatic Updates</h4>
+                        <p>Our system automatically updates property listings daily.</p>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="feature-icon text-center mb-3">
+                            <i class="bi bi-download" style="font-size: 2rem;"></i>
+                        </div>
+                        <h4>Data Export</h4>
+                        <p>Export property data to JSON or CSV for further analysis.</p>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="feature-icon text-center mb-3">
+                            <i class="bi bi-share" style="font-size: 2rem;"></i>
+                        </div>
+                        <h4>API Access</h4>
+                        <p>Access our data programmatically through RESTful APIs.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-body">
-        <h5 class="card-title">Informazioni Tecniche</h5>
-        <div class="row">
-            <div class="col-md-6">
-                <p><strong>Intervallo di Download:</strong> 15-20 minuti (configurabile)</p>
-                <p><strong>Database:</strong> SQLite (listings.db)</p>
-                <p><strong>Porta Web:</strong> 5000</p>
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title">How It Works</h2>
+                <p>HomeFinder follows a simple three-step process:</p>
+                
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <div class="step-number bg-primary text-white rounded-circle d-inline-block mb-3" style="width: 50px; height: 50px; line-height: 50px;">1</div>
+                        <h4>Scrape</h4>
+                        <p>Periodically download and parse listing websites to extract structured property data using BeautifulSoup.</p>
+                    </div>
+                    
+                    <div class="col-md-4 text-center">
+                        <div class="step-number bg-primary text-white rounded-circle d-inline-block mb-3" style="width: 50px; height: 50px; line-height: 50px;">2</div>
+                        <h4>Store</h4>
+                        <p>Store extracted data in a well-structured SQLite database for efficient querying and analysis.</p>
+                    </div>
+                    
+                    <div class="col-md-4 text-center">
+                        <div class="step-number bg-primary text-white rounded-circle d-inline-block mb-3" style="width: 50px; height: 50px; line-height: 50px;">3</div>
+                        <h4>Analyze</h4>
+                        <p>Provide a web interface to search, browse, and analyze the extracted property data.</p>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-6">
-                <p><strong>Gestione Errori:</strong> Annunci minimali con titolo e URL</p>
-                <p><strong>LLM Integration:</strong> Pronta per futuro implementazione</p>
-                <p><strong>Logging:</strong> homefinder.log</p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title">Future Plans</h2>
+                <p>We're constantly working to improve HomeFinder. Here are some features we plan to add:</p>
+                
+                <ul>
+                    <li>Support for additional real estate websites</li>
+                    <li>Expanded geographic coverage beyond Padova</li>
+                    <li>Property comparison tools</li>
+                    <li>Telegram alerts for new listings matching your criteria</li>
+                    <li>Advanced filtering and sorting options</li>
+                    <li>Historical price tracking</li>
+                    <li>Interactive maps with property locations</li>
+                </ul>
             </div>
         </div>
     </div>

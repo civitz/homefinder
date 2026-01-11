@@ -1,55 +1,25 @@
-# Configuration file for the homefinder system
 import os
 from pathlib import Path
+from typing import Final
 
-# Base directory
-BASE_DIR = Path(__file__).parent
+# Directories
+BASE_DIR: Final[Path] = Path(__file__).parent
+DOWNLOAD_DIR: Final[Path] = BASE_DIR / "downloads"
+LOG_FILE: Final[Path] = BASE_DIR / "homefinder.log"
+DB_FILE: Final[Path] = BASE_DIR / "properties.db"
+EXAMPLES_DIR: Final[Path] = BASE_DIR / "examples"
 
-# Website download configuration
-WEBSITE_URL = "https://www.tettorossoimmobiliare.it/"
-DOWNLOAD_DIR = BASE_DIR / "downloaded_website"
-DOWNLOAD_INTERVAL_MINUTES = 15  # Configurable interval
+# Scraping configuration
+USER_AGENT: Final[str] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+REQUEST_TIMEOUT: Final[int] = 30
+MAX_RETRIES: Final[int] = 3
+REQUEST_DELAY_MS: Final[int] = 500  # Delay between requests in milliseconds
+
+# Flask configuration
+FLASK_SECRET_KEY: Final[str] = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
+FLASK_DEBUG: Final[bool] = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+FLASK_HOST: Final[str] = os.getenv("FLASK_HOST", "0.0.0.0")
+FLASK_PORT: Final[int] = int(os.getenv("FLASK_PORT", "5000"))
 
 # Database configuration
-DATABASE_PATH = BASE_DIR / "listings.db"
-
-# LLM configuration (placeholder for future implementation)
-LLM_PROMPT_TEMPLATE = """
-Analyze the following real estate listing description and extract structured information:
-
-{description}
-
-Return the result as JSON with the following fields:
-- locali: number of rooms
-- mq: square meters
-- piano: floor
-- riscaldamento: heating type (autonomo/centralizzato)
-- condizionatore: boolean
-- ascensore: boolean
-- garage: boolean
-- arredato: boolean
-- anno: construction year
-- note: any additional notes
-
-Only return valid JSON, no other text.
-"""
-
-# Web interface configuration
-WEB_PORT = 5000
-WEB_HOST = "0.0.0.0"
-
-# Logging configuration
-LOG_FILE = BASE_DIR / "homefinder.log"
-LOG_LEVEL = "INFO"
-
-
-# Ensure directories exist
-def ensure_directories():
-    DOWNLOAD_DIR.mkdir(exist_ok=True)
-    # Create log directory if needed
-    if not LOG_FILE.parent.exists():
-        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-
-if __name__ == "__main__":
-    ensure_directories()
+DB_CONNECTION_STRING: Final[str] = f"sqlite:///{DB_FILE}"

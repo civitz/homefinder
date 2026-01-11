@@ -1,369 +1,460 @@
-#!/usr/bin/env python3
-"""
-Database module for storing property listings
-Uses SQLite for local storage
-"""
-
 import sqlite3
-import logging
+from typing import List, Optional, Dict, Any
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+import logging
 from datetime import datetime
-from config import DATABASE_PATH, LOG_FILE
-from scraper import Casetta
 
-# Set up logging
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+from models import Listing
+from config import DB_FILE
 
 
-class PropertyDatabase:
-    """
-    Database interface for property listings
-    """
-
-    def __init__(self, db_path: Path = DATABASE_PATH):
-        self.db_path = db_path
+class DatabaseManager:
+    """Database manager for property listings."""
+    
+    def __init__(self, db_path: Optional[Path] = None):
+        self.db_path = db_path or DB_FILE
+        self.logger = logging.getLogger(__name__)
         self._initialize_database()
-
-    def _initialize_database(self):
-        """
-        Initialize the database with required tables
-        """
+    
+    def _initialize_database(self) -> None:
+        """Initialize database and create tables if they don't exist."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_connection() as conn:
                 cursor = conn.cursor()
-
-                # Create properties table
-                cursor.execute("""
-                CREATE TABLE IF NOT EXISTS properties (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    titolo TEXT NOT NULL,
-                    agenzia TEXT NOT NULL,
-                    url TEXT UNIQUE,
-                    descrizione TEXT,
-                    contratto TEXT,
-                    prezzo INTEGER,
-                    classe TEXT,
-                    locali INTEGER,
-                    mq INTEGER,
-                    piano TEXT,
-                    riscaldamento TEXT,
-                    condizionatore BOOLEAN,
-                    ascensore BOOLEAN,
-                    garage BOOLEAN,
-                    arredato BOOLEAN,
-                    anno INTEGER,
-                    note TEXT,
-                    scrape_date TEXT NOT NULL,
-                    publication_date TEXT,
-                    raw_html_file TEXT,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                )
-                """)
-
-                # Create index for faster searches
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_url ON properties(url)")
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_contratto ON properties(contratto)"
-                )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_prezzo ON properties(prezzo)"
-                )
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_mq ON properties(mq)")
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_locali ON properties(locali)"
-                )
-
+                
+                # Create listings table
+                cursor.execute('''
+                         CREATE TABLE IF NOT EXISTS listings (
+                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         title TEXT NOT NULL,
+                         agency TEXT NOT NULL,
+                         url TEXT UNIQUE NOT NULL,
+                         description TEXT,
+                         contract_type TEXT NOT NULL,
+                         price REAL NOT NULL,
+                         city TEXT NOT NULL,
+                         neighborhood TEXT,
+                         address TEXT,
+                         rooms INTEGER,
+                         bedrooms INTEGER,
+                         bathrooms INTEGER,
+                         square_meters INTEGER,
+                         floor TEXT,
+                         year_built INTEGER,
+                         has_elevator BOOLEAN,
+                         heating TEXT,
+                         has_air_conditioning BOOLEAN,
+                         has_garage BOOLEAN,
+                         is_furnished BOOLEAN,
+                         energy_class TEXT,
+                         energy_consumption REAL,
+                         features TEXT,
+                         scrape_date TEXT NOT NULL,
+                         publication_date TEXT,
+                         raw_html_file TEXT,
+                         agency_listing_id TEXT
+                     )
+                ''')
+                
+                # Create indexes for better search performance
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_city ON listings(city)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_price ON listings(price)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_contract ON listings(contract_type)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_square_meters ON listings(square_meters)')
+                
                 conn.commit()
-                logger.info(f"Database initialized at {self.db_path}")
-
-        except Exception as e:
-            logger.error(f"Error initializing database: {str(e)}")
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Database initialization error: {e}")
             raise
-
-    def _casetta_to_db_dict(self, casetta: Casetta) -> Dict[str, Any]:
-        """
-        Convert Casetta object to database-friendly dictionary
-        """
-        data = casetta.to_dict()
-        data["created_at"] = datetime.now().isoformat()
-        data["updated_at"] = datetime.now().isoformat()
-        return data
-
-    def insert_or_update_property(self, casetta: Casetta) -> bool:
-        """
-        Insert a new property or update existing one based on URL
-
-        Args:
-            casetta: Casetta object to insert/update
-
-        Returns:
-            True if successful, False otherwise
-        """
+    
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get database connection."""
+        return sqlite3.connect(str(self.db_path))
+    
+    def save_listing(self, listing: Listing) -> int:
+        """Save a single listing to database."""
         try:
-            data = self._casetta_to_db_dict(casetta)
-
-            with sqlite3.connect(self.db_path) as conn:
+            listing_dict = listing.to_dict()
+            
+            with self._get_connection() as conn:
                 cursor = conn.cursor()
-
-                # Check if property already exists
-                cursor.execute(
-                    "SELECT id FROM properties WHERE url = ?", (casetta.url,)
-                )
+                
+                # Check if listing already exists
+                cursor.execute('SELECT id FROM listings WHERE url = ?', (listing.url,))
                 existing = cursor.fetchone()
-
+                 
                 if existing:
-                    # Update existing property
-                    data["updated_at"] = datetime.now().isoformat()
-
-                    # Build update query dynamically
-                    set_clause = ", ".join(
-                        [f"{key} = ?" for key in data.keys() if key != "id"]
-                    )
-                    values = [data[key] for key in data.keys() if key != "id"]
-                    values.append(casetta.url)
-
-                    query = f"""
-                    UPDATE properties 
-                    SET {set_clause}, updated_at = ? 
-                    WHERE url = ?
-                    """
-                    # Remove the extra updated_at from values since it's in the SET clause
-                    values = values[:-1] + [data["updated_at"]] + [casetta.url]
-
-                    cursor.execute(query, values)
-                    logger.info(f"Updated property: {casetta.titolo}")
+                    # Update existing listing
+                    update_query = '''
+                        UPDATE listings SET 
+                            title = ?,
+                            agency = ?,
+                            description = ?,
+                            contract_type = ?,
+                            price = ?,
+                            city = ?,
+                            neighborhood = ?,
+                            address = ?,
+                            rooms = ?,
+                            bedrooms = ?,
+                            bathrooms = ?,
+                            square_meters = ?,
+                            floor = ?,
+                            year_built = ?,
+                            has_elevator = ?,
+                            heating = ?,
+                            has_air_conditioning = ?,
+                            has_garage = ?,
+                            is_furnished = ?,
+                            energy_class = ?,
+                            energy_consumption = ?,
+                            features = ?,
+                            scrape_date = ?,
+                            publication_date = ?,
+                            raw_html_file = ?,
+                             agency_listing_id = ?
+                        WHERE url = ?
+                    '''
+                     
+                    cursor.execute(update_query, (
+                        listing_dict['title'],
+                        listing_dict['agency'],
+                        listing_dict['description'],
+                        listing_dict['contract_type'],
+                        listing_dict['price'],
+                        listing_dict['city'],
+                        listing_dict['neighborhood'],
+                        listing_dict['address'],
+                        listing_dict['rooms'],
+                        listing_dict['bedrooms'],
+                        listing_dict['bathrooms'],
+                        listing_dict['square_meters'],
+                        listing_dict['floor'],
+                        listing_dict['year_built'],
+                        listing_dict['has_elevator'],
+                        listing_dict['heating'],
+                        listing_dict['has_air_conditioning'],
+                        listing_dict['has_garage'],
+                        listing_dict['is_furnished'],
+                        listing_dict['energy_class'],
+                        listing_dict['energy_consumption'],
+                        str(listing_dict['features']) if listing_dict['features'] else None,
+                        listing_dict['scrape_date'],
+                        listing_dict['publication_date'],
+                        listing_dict['raw_html_file'],
+                         listing_dict['agency_listing_id'],
+                        listing.url
+                    ))
+                     
+                    self.logger.info(f"Updated existing listing: {listing.url}")
                 else:
-                    # Insert new property
-                    columns = ", ".join(data.keys())
-                    placeholders = ", ".join(["?"] * len(data))
-
-                    query = f"""
-                    INSERT INTO properties ({columns}) 
-                    VALUES ({placeholders})
-                    """
-
-                    cursor.execute(query, list(data.values()))
-                    logger.info(f"Inserted new property: {casetta.titolo}")
-
+                    # Insert new listing
+                    insert_query = '''
+                        INSERT INTO listings (
+                            title, agency, url, description, contract_type, price, city, 
+                            neighborhood, address, rooms, bedrooms, bathrooms, square_meters, 
+                            floor, year_built, has_elevator, heating, has_air_conditioning, 
+                            has_garage, is_furnished, energy_class, energy_consumption, 
+                             features, scrape_date, publication_date, raw_html_file, agency_listing_id
+                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    '''
+                     
+                    cursor.execute(insert_query, (
+                        listing_dict['title'],
+                        listing_dict['agency'],
+                        listing_dict['url'],
+                        listing_dict['description'],
+                        listing_dict['contract_type'],
+                        listing_dict['price'],
+                        listing_dict['city'],
+                        listing_dict['neighborhood'],
+                        listing_dict['address'],
+                        listing_dict['rooms'],
+                        listing_dict['bedrooms'],
+                        listing_dict['bathrooms'],
+                        listing_dict['square_meters'],
+                        listing_dict['floor'],
+                        listing_dict['year_built'],
+                        listing_dict['has_elevator'],
+                        listing_dict['heating'],
+                        listing_dict['has_air_conditioning'],
+                        listing_dict['has_garage'],
+                        listing_dict['is_furnished'],
+                        listing_dict['energy_class'],
+                        listing_dict['energy_consumption'],
+                        str(listing_dict['features']) if listing_dict['features'] else None,
+                        listing_dict['scrape_date'],
+                        listing_dict['publication_date'],
+                        listing_dict['raw_html_file'],
+                         listing_dict['agency_listing_id']
+                    ))
+                     
+                    self.logger.info(f"Inserted new listing: {listing.url}")
+                 
                 conn.commit()
-                return True
-
-        except Exception as e:
-            logger.error(f"Error inserting/updating property {casetta.url}: {str(e)}")
-            return False
-
-    def insert_or_update_properties(self, properties: List[Casetta]) -> int:
-        """
-        Insert or update multiple properties
-
-        Args:
-            properties: List of Casetta objects
-
-        Returns:
-            Number of successfully processed properties
-        """
+                
+                if existing:
+                    # Return the existing ID for updates
+                    return existing[0]
+                else:
+                    # Return the newly generated ID for inserts
+                    return cursor.lastrowid or -1
+                 
+        except sqlite3.Error as e:
+            self.logger.error(f"Error saving listing {listing.url}: {e}")
+            return -1
+    
+    def save_listings(self, listings: List[Listing]) -> int:
+        """Save multiple listings to database."""
         success_count = 0
-
-        for property_data in properties:
-            if self.insert_or_update_property(property_data):
+        for listing in listings:
+            if self.save_listing(listing):
                 success_count += 1
-
-        logger.info(
-            f"Processed {success_count}/{len(properties)} properties successfully"
-        )
         return success_count
-
-    def get_all_properties(self) -> List[Dict[str, Any]]:
-        """
-        Get all properties from database
-
-        Returns:
-            List of property dictionaries
-        """
+    
+    def get_listing_by_url(self, url: str) -> Optional[Listing]:
+        """Get listing by URL."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+            with self._get_connection() as conn:
                 cursor = conn.cursor()
-
-                cursor.execute("SELECT * FROM properties ORDER BY created_at DESC")
-                results = cursor.fetchall()
-
-                return [dict(row) for row in results]
-
-        except Exception as e:
-            logger.error(f"Error getting all properties: {str(e)}")
-            return []
-
-    def get_property_by_id(self, property_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Get property by ID
-
-        Args:
-            property_id: ID of the property
-
-        Returns:
-            Property dictionary or None if not found
-        """
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-
-                cursor.execute("SELECT * FROM properties WHERE id = ?", (property_id,))
-                result = cursor.fetchone()
-
-                return dict(result) if result else None
-
-        except Exception as e:
-            logger.error(f"Error getting property {property_id}: {str(e)}")
+                cursor.execute('SELECT * FROM listings WHERE url = ?', (url,))
+                row = cursor.fetchone()
+                 
+                if row:
+                    return self._row_to_listing(row)
+                 
+                return None
+                 
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching listing by URL {url}: {e}")
             return None
 
-    def search_properties(self, **kwargs) -> List[Dict[str, Any]]:
-        """
-        Search properties with various filters
-
-        Args:
-            **kwargs: Filter parameters (e.g., contratto='VENDITA', prezzo_min=100000)
-
-        Returns:
-            List of matching property dictionaries
-        """
+    def get_listing_by_id(self, listing_id: int) -> Optional[Listing]:
+        """Get listing by database ID."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
+            with self._get_connection() as conn:
                 cursor = conn.cursor()
-
-                # Build query dynamically
-                query = "SELECT * FROM properties WHERE 1=1"
-                params = []
-
-                # Add filters
-                if "contratto" in kwargs:
-                    query += " AND contratto = ?"
-                    params.append(kwargs["contratto"])
-
-                if "prezzo_min" in kwargs:
-                    query += " AND prezzo >= ?"
-                    params.append(kwargs["prezzo_min"])
-
-                if "prezzo_max" in kwargs:
-                    query += " AND prezzo <= ?"
-                    params.append(kwargs["prezzo_max"])
-
-                if "mq_min" in kwargs:
-                    query += " AND mq >= ?"
-                    params.append(kwargs["mq_min"])
-
-                if "locali_min" in kwargs:
-                    query += " AND locali >= ?"
-                    params.append(kwargs["locali_min"])
-
-                if "classe" in kwargs:
-                    query += " AND classe = ?"
-                    params.append(kwargs["classe"])
-
-                if "search_text" in kwargs:
-                    search_term = f"%{kwargs['search_text']}%"
-                    query += " AND (titolo LIKE ? OR descrizione LIKE ?)"
-                    params.extend([search_term, search_term])
-
-                # Add ordering
-                query += " ORDER BY created_at DESC"
-
+                cursor.execute('SELECT * FROM listings WHERE id = ?', (listing_id,))
+                row = cursor.fetchone()
+                  
+                if row:
+                    return self._row_to_listing(row)
+                  
+                return None
+                  
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching listing by ID {listing_id}: {e}")
+            return None
+    
+    def search_listings(self, **kwargs) -> List[Listing]:
+        """Search listings with various filters."""
+        try:
+            query = 'SELECT * FROM listings WHERE 1=1'
+            params = []
+            
+            # Add filters based on kwargs
+            if 'city' in kwargs and kwargs['city']:
+                query += ' AND city = ?'
+                params.append(kwargs['city'])
+                
+            if 'min_price' in kwargs and kwargs['min_price']:
+                query += ' AND price >= ?'
+                params.append(kwargs['min_price'])
+                
+            if 'max_price' in kwargs and kwargs['max_price']:
+                query += ' AND price <= ?'
+                params.append(kwargs['max_price'])
+                
+            if 'min_size' in kwargs and kwargs['min_size']:
+                query += ' AND square_meters >= ?'
+                params.append(kwargs['min_size'])
+                
+            if 'contract_type' in kwargs and kwargs['contract_type']:
+                query += ' AND contract_type = ?'
+                params.append(kwargs['contract_type'])
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
                 cursor.execute(query, params)
-                results = cursor.fetchall()
-
-                return [dict(row) for row in results]
-
-        except Exception as e:
-            logger.error(f"Error searching properties: {str(e)}")
+                rows = cursor.fetchall()
+                
+                return [self._row_to_listing(row) for row in rows]
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error searching listings: {e}")
             return []
-
-    def get_property_count(self) -> int:
-        """
-        Get total number of properties in database
-
-        Returns:
-            Number of properties
-        """
+    
+    def get_all_listings(self) -> List[Listing]:
+        """Get all listings."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM properties")
-                return cursor.fetchone()[0]
-        except Exception as e:
-            logger.error(f"Error getting property count: {str(e)}")
-            return 0
-
-    def get_recent_properties(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Get most recently added/updated properties
-
-        Args:
-            limit: Maximum number of properties to return
-
-        Returns:
-            List of recent property dictionaries
-        """
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-
-                cursor.execute(
-                    """
-                SELECT * FROM properties 
-                ORDER BY updated_at DESC 
-                LIMIT ?
-                """,
-                    (limit,),
-                )
-
-                results = cursor.fetchall()
-                return [dict(row) for row in results]
-
-        except Exception as e:
-            logger.error(f"Error getting recent properties: {str(e)}")
+                cursor.execute('SELECT * FROM listings')
+                rows = cursor.fetchall()
+                
+                return [self._row_to_listing(row) for row in rows]
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching all listings: {e}")
             return []
-
-    def clear_database(self) -> bool:
-        """
-        Clear all properties from database (for testing)
-
-        Returns:
-            True if successful, False otherwise
-        """
+    
+    def _row_to_listing(self, row: tuple) -> Listing:
+        """Convert database row to Listing object."""
+        # Map row to listing fields
+        listing_data = {
+            'id': row[0],
+            'title': row[1],
+            'agency': row[2],
+            'url': row[3],
+            'description': row[4],
+            'contract_type': row[5],
+            'price': row[6],
+            'city': row[7],
+            'neighborhood': row[8],
+            'address': row[9],
+            'rooms': row[10],
+            'bedrooms': row[11],
+            'bathrooms': row[12],
+            'square_meters': row[13],
+            'floor': row[14],
+            'year_built': row[15],
+            'has_elevator': row[16],
+            'heating': row[17],
+            'has_air_conditioning': row[18],
+            'has_garage': row[19],
+            'is_furnished': row[20],
+            'energy_class': row[21],
+            'energy_consumption': row[22],
+            'features': row[23],
+            'scrape_date': row[24],
+            'publication_date': row[25],
+            'raw_html_file': row[26],
+            'agency_listing_id': row[27]
+        }
+        
+        # Convert features from string back to list
+        if listing_data['features']:
+            try:
+                # Simple parsing - this would need to be more robust for complex cases
+                listing_data['features'] = listing_data['features'].strip('[]').split(', ')
+            except:
+                listing_data['features'] = []
+        
+        return Listing.from_dict(listing_data)
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get statistics about the database."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM properties")
+                 
+                # Get total count
+                cursor.execute('SELECT COUNT(*) FROM listings')
+                total = cursor.fetchone()[0]
+                  
+                # Get average price
+                cursor.execute('SELECT AVG(price) FROM listings')
+                avg_price = cursor.fetchone()[0] or 0
+                  
+                # Get average size
+                cursor.execute('SELECT AVG(square_meters) FROM listings WHERE square_meters IS NOT NULL')
+                avg_size = cursor.fetchone()[0] or 0
+                  
+                # Get last updated
+                cursor.execute('SELECT MAX(scrape_date) FROM listings')
+                last_updated = cursor.fetchone()[0]
+                  
+                return {
+                    'total_properties': total,
+                    'average_price': round(avg_price, 2),
+                    'average_size': round(avg_size, 2),
+                    'last_updated': last_updated
+                }
+                  
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting stats: {e}")
+            return {
+                'total_properties': 0,
+                'average_price': 0,
+                'average_size': 0,
+                'last_updated': None
+            }
+
+    def get_price_distribution(self) -> Dict[str, Any]:
+        """Get price distribution data for histogram."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Define price ranges for sell properties (in euros)
+                sell_ranges = [
+                    (0, 50000), (50000, 100000), (100000, 150000), (150000, 200000),
+                    (200000, 250000), (250000, 300000), (300000, 500000), (500000, 1000000)
+                ]
+                
+                # Define price ranges for rent properties (in euros)
+                rent_ranges = [
+                    (0, 300), (300, 500), (500, 700), (700, 900), (900, 1200),
+                    (1200, 1500), (1500, 2000), (2000, 3000)
+                ]
+                
+                # Get sell price distribution
+                sell_distribution = []
+                for min_price, max_price in sell_ranges:
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM listings 
+                        WHERE contract_type LIKE "%SELL%" AND price >= ? AND price < ?
+                    ''', (min_price, max_price))
+                    count = cursor.fetchone()[0]
+                    sell_distribution.append(count)
+                
+                # Get rent price distribution
+                rent_distribution = []
+                for min_price, max_price in rent_ranges:
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM listings 
+                        WHERE contract_type LIKE "%RENT%" AND price >= ? AND price < ?
+                    ''', (min_price, max_price))
+                    count = cursor.fetchone()[0]
+                    rent_distribution.append(count)
+                
+                return {
+                    'sell': {
+                        'ranges': [f"€{min_price/1000:.0f}k-€{max_price/1000:.0f}k" for min_price, max_price in sell_ranges],
+                        'counts': sell_distribution
+                    },
+                    'rent': {
+                        'ranges': [f"€{min_price}-€{max_price}" for min_price, max_price in rent_ranges],
+                        'counts': rent_distribution
+                    }
+                }
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting price distribution: {e}")
+            return {
+                'sell': {'ranges': [], 'counts': []},
+                'rent': {'ranges': [], 'counts': []}
+            }
+
+    def clear_all_listings(self) -> int:
+        """Remove all listings from the database."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Get count before deletion
+                cursor.execute('SELECT COUNT(*) FROM listings')
+                count_before = cursor.fetchone()[0]
+                
+                # Delete all listings
+                cursor.execute('DELETE FROM listings')
+                
                 conn.commit()
-                logger.info("Database cleared successfully")
-                return True
-        except Exception as e:
-            logger.error(f"Error clearing database: {str(e)}")
-            return False
-
-
-# Global database instance
-db = PropertyDatabase()
-
-if __name__ == "__main__":
-    # Test the database
-    print(f"Database path: {DATABASE_PATH}")
-    print(f"Total properties: {db.get_property_count()}")
-
-    # Test search
-    results = db.search_properties(contratto="VENDITA")
-    print(f"VENDITA properties: {len(results)}")
-
-    # Test recent
-    recent = db.get_recent_properties(5)
-    print(f"Recent properties: {len(recent)}")
+                
+                self.logger.info(f"Cleared all listings from database. Removed {count_before} listings.")
+                return count_before
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error clearing all listings: {e}")
+            return -1

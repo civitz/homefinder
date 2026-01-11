@@ -1,124 +1,177 @@
 #!/usr/bin/env python3
-"""
-Main application for HomeFinder system
-Orchestrates the entire workflow: download, scrape, store, and serve
-"""
+"""Main application entry point for HomeFinder."""
 
+import sys
 import logging
-import time
-import threading
-import schedule
-from datetime import datetime
-from config import DOWNLOAD_INTERVAL_MINUTES, LOG_FILE, ensure_directories
-from downloader import download_website, get_downloaded_files, set_last_download_time
-from scraper import scrape_all_properties
-from database import db
-from webapp import app
+import argparse
+from pathlib import Path
+from typing import Optional
+
+# Add project root to Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+from app import app
+from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR
+from scraper import TettorossoScraper, GalileoScraper
+from database import DatabaseManager
+from background_scraper import BackgroundScraper
 
 
-# Set up logging
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
-    
-# Also log to console
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-logger.addHandler(console_handler)
-
-def full_update_cycle():
-    """
-    Perform a complete update cycle: download, scrape, store
-    """
-    logger.info("Starting full update cycle")
-
+def main(args=None):
+    """Main application entry point."""
+    if args is None:
+        args = parse_arguments()
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(LOG_FILE),
+            logging.StreamHandler()
+        ]
+    )
+     
+    logger = logging.getLogger(__name__)
+    logger.info("Starting HomeFinder application...")
+     
     try:
-        # Step 1: Download website
-        logger.info("Step 1/3: Downloading website...")
-        download_success = download_website()
-
-        if not download_success:
-            logger.warning("Website download failed, scraping anyway")
-            #return False
-
-        set_last_download_time()
-
-        # Step 2: Scrape properties
-        logger.info("Step 2/3: Scraping properties...")
-        properties = scrape_all_properties()
-        logger.info(f"Found {len(properties)} properties")
-
-        # Step 3: Store in database
-        logger.info("Step 3/3: Storing properties in database...")
-        success_count = db.insert_or_update_properties(properties)
-        logger.info(f"Successfully stored {success_count} properties")
-
-        logger.info("Full update cycle completed successfully")
-        return True
-
-    except Exception as e:
-        logger.error(f"Error in full update cycle: {str(e)}")
-        return False
-
-
-def run_scheduled_updates():
-    """
-    Run scheduled updates in background
-    """
-    logger.info(f"Starting scheduled updates every {DOWNLOAD_INTERVAL_MINUTES} minutes")
-
-    # Initial delay to avoid immediate execution
-    #time.sleep(60)
-
-    while True:
+        # Initialize components
+        db_manager = DatabaseManager()
+        
+        # Determine request delay
+        request_delay_ms = args.request_delay if args.request_delay is not None else None
+        
+        scrapers = [
+            TettorossoScraper(request_delay_ms=request_delay_ms),
+            GalileoScraper(request_delay_ms=request_delay_ms)
+        ]
+        
+        # Initialize background scraper
+        if args.no_background:
+            logger.info("Background scraping disabled")
+            background_scraper = None
+        else:
+            background_scraper = BackgroundScraper(
+                interval_hours=args.scrape_interval,
+                request_delay_ms=request_delay_ms
+            )
+            # Set global instance for manual triggering
+            from background_scraper import set_background_scraper
+            set_background_scraper(background_scraper)
+        
+        # Create necessary directories
+        DOWNLOAD_DIR.mkdir(exist_ok=True)
+        
+        # Process data based on arguments
+        if args.use_examples:
+            # Check if we have example data to work with
+            example_files = list(EXAMPLES_DIR.rglob("*.html"))
+            if example_files:
+                logger.info(f"Found {len(example_files)} example files")
+                 
+                # Process example files with appropriate scrapers
+                for example_file in example_files:
+                    try:
+                        logger.info(f"Processing example file: {example_file}")
+                         
+                        # Determine which scraper to use based on the file path
+                        if 'tettorossoimmobiliare.it' in str(example_file):
+                            scraper = next(s for s in scrapers if isinstance(s, TettorossoScraper))
+                        elif 'galileoimmobiliare.it' in str(example_file):
+                            scraper = next(s for s in scrapers if isinstance(s, GalileoScraper))
+                        else:
+                            logger.warning(f"Unknown website for file: {example_file}")
+                            continue
+                         
+                        listing = scraper.scrape_html_file(example_file)
+                        if listing:
+                            db_manager.save_listing(listing)
+                            logger.info(f"Successfully processed and saved: {listing.title}")
+                        else:
+                            logger.warning(f"Failed to scrape: {example_file}")
+                    except Exception as e:
+                        logger.error(f"Error processing {example_file}: {e}")
+            else:
+                logger.warning("No example files found")
+        else:
+            # Run initial live scraping if not using examples
+            if not args.use_examples and background_scraper:
+                logger.info("Running initial live scraping...")
+                # This will be handled by the background scraper's start() method
+            elif not args.use_examples and not background_scraper:
+                logger.info("Running single live scraping pass...")
+                # Run a single scraping pass
+                for scraper in scrapers:
+                    try:
+                        listings = scraper.scrape_live_listings()
+                        if listings:
+                            saved_count = db_manager.save_listings(listings)
+                            logger.info(f"Successfully scraped and saved {saved_count} listings from {scraper.name}")
+                    except Exception as e:
+                        logger.error(f"Error in initial scraping for {scraper.name}: {e}")
+        
+        # Start Flask application first (non-blocking in debug mode)
+        logger.info("Starting Flask web server...")
+        
+        # Start background scraper after Flask is ready
+        if background_scraper:
+            # Use a separate thread to start the background scraper
+            import threading
+            def start_background():
+                # Give Flask a moment to start
+                import time
+                time.sleep(2)
+                background_scraper.start()
+            
+            bg_thread = threading.Thread(target=start_background, daemon=True)
+            bg_thread.start()
+        
         try:
-            logger.info(f"Running scheduled update at {datetime.now()}")
-            full_update_cycle()
-
-            # Wait for the configured interval
-            wait_minutes = DOWNLOAD_INTERVAL_MINUTES
-            logger.info(f"Next update scheduled in {wait_minutes} minutes...")
-            time.sleep(wait_minutes * 60)
-
-        except Exception as e:
-            logger.error(f"Error in scheduled update: {str(e)}")
-            # Wait a bit before retrying
-            time.sleep(300)  # 5 minutes
-
-
-def run_web_interface():
-    """
-    Run the Flask web interface
-    """
-    logger.info("Starting web interface")
-    app.run(host="0.0.0.0", port=5000, debug=False)
-
-
-def main():
-    """
-    Main entry point
-    """
-    
-    ensure_directories()
-    logger.info("Starting HomeFinder system")
-
-    try:
-        # Start scheduled updates in background thread
-        scheduler_thread = threading.Thread(target=run_scheduled_updates, daemon=True)
-        scheduler_thread.start()
-
-        # Start web interface in main thread
-        run_web_interface()
-
+            app.run(host='0.0.0.0', port=5000, debug=True)
+        finally:
+            # Cleanup on exit
+            if background_scraper:
+                background_scraper.stop()
+        
     except KeyboardInterrupt:
-        logger.info("Shutting down HomeFinder system")
+        logger.info("Shutting down HomeFinder application...")
     except Exception as e:
-        logger.error(f"Fatal error in main: {str(e)}")
+        logger.error(f"Fatal error: {e}")
+        sys.exit(1)
+
+
+def parse_arguments(argv=None):
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='HomeFinder - Real Estate Scraper and Search Tool')
+    parser.add_argument(
+        '--use-examples',
+        action='store_true',
+        help='Use example files instead of live scraping'
+    )
+    parser.add_argument(
+        '--no-background',
+        action='store_true',
+        help='Disable background scraping (live scraping only runs once at startup)'
+    )
+    parser.add_argument(
+        '--scrape-interval',
+        type=int,
+        default=1,
+        help='Background scraping interval in hours (default: 1)'
+    )
+    parser.add_argument(
+        '--request-delay',
+        type=int,
+        default=None,
+        help='Delay between HTTP requests in milliseconds (default: from config)'
+    )
+    
+    if argv is None:
+        return parser.parse_args()
+    else:
+        return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_arguments()
+    main(args)

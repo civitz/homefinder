@@ -1,0 +1,21 @@
+# YAML representation of the Galileo Immobiliare listing
+# Casa singola a Sant’ Antonino
+
+title: "Casa singola a Sant’ Antonino"
+price: 250000.0
+location: "Via Caratti, Arcella - Sant'Antonino - Padova PD"
+bedrooms: 3
+bathrooms: 2
+square_meters: 130
+code: "3518882"  # Current scraper extracts address instead of ID
+year: null
+energy_class: "F"  # Scraper extracts this correctly
+elevator: false  # Scraper extracts this correctly
+heating: "Autonomous"
+rooms: "cucina (kitchen), soggiorno (living room)"
+balcony: true
+garage: true  # Scraper extracts this correctly
+contract: "sell"
+agency: "Galileo Immobiliare"
+city: "Padova"
+neighborhood: "Arcella - Sant'Antonino"  # Scraper extracts this correctly

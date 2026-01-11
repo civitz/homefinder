@@ -1,113 +1,224 @@
 {% extends "base.html" %}
 
-{% block title %}HomeFinder - Statistiche{% endblock %}
+{% block title %}Market Statistics - HomeFinder{% endblock %}
 
 {% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="display-4 mb-4">Market Statistics</h1>
+        <p class="lead">Get insights into the Padova real estate market.</p>
+    </div>
+</div>
+
 <div class="row mb-4">
     <div class="col-md-12">
-        <h1>Statistiche Immobili</h1>
-        <p class="text-muted">Analisi dei dati raccolti</p>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title">Totale Immobili</h5>
-                <p class="card-text display-4">{{ total_properties }}</p>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title">In Vendita</h5>
-                <p class="card-text display-4 text-success">{{ vendita_properties }}</p>
-                <p class="card-text">({{ "%.1f"|format((vendita_properties / total_properties * 100) if total_properties > 0 else 0) }}%)</p>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title">In Affitto</h5>
-                <p class="card-text display-4 text-primary">{{ affitto_properties }}</p>
-                <p class="card-text">({{ "%.1f"|format((affitto_properties / total_properties * 100) if total_properties > 0 else 0) }}%)</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-6">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Statistiche Prezzi</h5>
-                {% if price_stats %}
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">
-                        <strong>Prezzo Minimo:</strong> € {{ "{:,}".format(price_stats.min) }}
-                    </li>
-                    <li class="list-group-item">
-                        <strong>Prezzo Massimo:</strong> € {{ "{:,}".format(price_stats.max) }}
-                    </li>
-                    <li class="list-group-item">
-                        <strong>Prezzo Medio:</strong> € {{ "{:,}".format(price_stats.avg) }}
-                    </li>
-                </ul>
-                {% else %}
-                <p class="text-muted">Nessun dato sui prezzi disponibile</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Statistiche Dimensione</h5>
-                {% if size_stats %}
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">
-                        <strong>Dimensione Minima:</strong> {{ size_stats.min }} m²
-                    </li>
-                    <li class="list-group-item">
-                        <strong>Dimensione Massima:</strong> {{ size_stats.max }} m²
-                    </li>
-                    <li class="list-group-item">
-                        <strong>Dimensione Media:</strong> {{ size_stats.avg }} m²
-                    </li>
-                </ul>
-                {% else %}
-                <p class="text-muted">Nessun dato sulle dimensioni disponibile</p>
-                {% endif %}
+                <h5 class="card-title">Current Market Overview</h5>
+                <div class="row">
+                     <div class="col-md-3">
+                         <div class="card text-center mb-3">
+                             <div class="card-body">
+                                 <h3 class="card-title">{{ stats.total_properties }}</h3>
+                                 <p class="card-text">Total Properties</p>
+                             </div>
+                         </div>
+                     </div>
+                     <div class="col-md-3">
+                         <div class="card text-center mb-3">
+                             <div class="card-body">
+                                 <h3 class="card-title">€ {{ "%.2f"|format(stats.average_price) }}</h3>
+                                 <p class="card-text">Average Price</p>
+                             </div>
+                         </div>
+                     </div>
+                     <div class="col-md-3">
+                         <div class="card text-center mb-3">
+                             <div class="card-body">
+                                 <h3 class="card-title">{{ "%.2f"|format(stats.average_size) }} m²</h3>
+                                 <p class="card-text">Average Size</p>
+                             </div>
+                         </div>
+                     </div>
+                     <div class="col-md-3">
+                         <div class="card text-center mb-3">
+                             <div class="card-body">
+                                 <h3 class="card-title">{% if stats.last_updated %}{{ stats.last_updated }}{% else %}N/A{% endif %}</h3>
+                                 <p class="card-text">Last Updated</p>
+                             </div>
+                         </div>
+                     </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-body">
-        <h5 class="card-title">Distribuzione per Contratto</h5>
-        <div class="progress mb-3">
-            <div class="progress-bar bg-success" role="progressbar" 
-                 style="width: {{ (vendita_properties / total_properties * 100) if total_properties > 0 else 0 }}%" 
-                 aria-valuenow="{{ vendita_properties }}" 
-                 aria-valuemin="0" 
-                 aria-valuemax="{{ total_properties }}">
-                Vendita ({{ vendita_properties }})
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Price Distribution - Properties for Sale</h5>
+                <p class="card-text">Distribution of property prices in our database.</p>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="sellPriceChart"></canvas>
+                </div>
             </div>
-            <div class="progress-bar bg-primary" role="progressbar" 
-                 style="width: {{ (affitto_properties / total_properties * 100) if total_properties > 0 else 0 }}%" 
-                 aria-valuenow="{{ affitto_properties }}" 
-                 aria-valuemin="0" 
-                 aria-valuemax="{{ total_properties }}">
-                Affitto ({{ affitto_properties }})
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">Price Distribution - Properties for Rent</h5>
+                <p class="card-text">Distribution of rental prices in our database.</p>
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="rentPriceChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Contract Type Distribution</h5>
+                <p class="card-text">Percentage of properties for sale vs rent.</p>
+                <div class="placeholder-chart" style="height: 200px; background-color: #f8f9fa; border: 1px dashed #dee2e6; display: flex; align-items: center; justify-content: center;">
+                    <p class="text-muted">Contract type distribution will appear here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Data Information</h5>
+                <p class="card-text">Information about our data collection.</p>
+                <ul>
+                    <li><strong>Data Source:</strong> Tettorosso Immobiliare and other sources</li>
+                    <li><strong>Update Frequency:</strong> Daily</li>
+                    <li><strong>Coverage Area:</strong> Padova and surrounding areas</li>
+                     <li><strong>Last Scrape:</strong> {% if stats.last_updated %}{{ stats.last_updated }}{% else %}Not yet implemented{% endif %}</li>
+                </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+// Price distribution charts
+document.addEventListener('DOMContentLoaded', function() {
+    const priceDistData = {{ price_distribution|tojson }};
+    console.log('Price distribution data:', priceDistData);
+
+// Create sell price chart
+const sellCtx = document.getElementById('sellPriceChart').getContext('2d');
+new Chart(sellCtx, {
+    type: 'bar',
+    data: {
+        labels: priceDistData.sell.ranges,
+        datasets: [{
+            label: 'Properties for Sale',
+            data: priceDistData.sell.counts,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Number of Properties'
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: 'Price Range'
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top'
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.parsed.y + ' properties';
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Create rent price chart
+const rentCtx = document.getElementById('rentPriceChart').getContext('2d');
+new Chart(rentCtx, {
+    type: 'bar',
+    data: {
+        labels: priceDistData.rent.ranges,
+        datasets: [{
+            label: 'Properties for Rent',
+            data: priceDistData.rent.counts,
+            backgroundColor: 'rgba(255, 99, 132, 0.7)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Number of Properties'
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: 'Price Range'
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: true,
+                position: 'top'
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.parsed.y + ' properties';
+                    }
+                }
+            }
+        }
+    }
+    });
+    
+    console.log('Sell chart created');
+    
+    console.log('Rent chart created');
+});
+</script>
+{% endblock %}
 {% endblock %}

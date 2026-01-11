@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}HomeFinder - {{ property.titolo }}{% endblock %}
+{% block title %}{{ property.title }} - HomeFinder{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
+<div class="row">
     <div class="col-md-12">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/">Home</a></li>
-                <li class="breadcrumb-item"><a href="/search">Cerca</a></li>
-                <li class="breadcrumb-item active" aria-current="page">{{ property.titolo|truncate(30) }}</li>
+                <li class="breadcrumb-item"><a href="/properties">Properties</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ property.title }}</li>
             </ol>
         </nav>
     </div>
@@ -19,126 +19,152 @@
     <div class="col-md-8">
         <div class="card mb-4">
             <div class="card-body">
-                <h1 class="card-title">{{ property.titolo }}</h1>
+                <h1 class="card-title display-5">{{ property.title }}</h1>
+                <p class="property-price h3">€ {{ "{:,}".format(property.price|int) }}</p>
                 
                 <div class="mb-3">
-                    {% if property.contratto == 'VENDITA' %}
-                    <span class="badge bg-success fs-5">VENDITA</span>
-                    {% elif property.contratto == 'AFFITTO' %}
-                    <span class="badge bg-primary fs-5">AFFITTO</span>
-                    {% endif %}
+                    <span class="badge bg-primary">For {{ property.contract_type }}</span>
+                    <span class="badge bg-secondary">{{ property.city }} {% if property.neighborhood %}| {{ property.neighborhood }}{% endif %}</span>
                 </div>
                 
-                <p class="property-price display-6 mb-4">
-                    {% if property.prezzo %}
-                    € {{ "{:,}".format(property.prezzo) }}
-                    {% else %}
-                    Prezzo non disponibile
-                    {% endif %}
-                </p>
-                
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-body">
-                                <h5 class="card-title">Caratteristiche Principali</h5>
-                                <ul class="list-group list-group-flush">
-                                    {% if property.mq %}
-                                    <li class="list-group-item"><i class="bi bi-house"></i> Superficie: {{ property.mq }} m²</li>
-                                    {% endif %}
-                                    {% if property.locali %}
-                                    <li class="list-group-item"><i class="bi bi-door-open"></i> Locali: {{ property.locali }}</li>
-                                    {% endif %}
-                                    {% if property.piano %}
-                                    <li class="list-group-item"><i class="bi bi-building"></i> Piano: {{ property.piano }}</li>
-                                    {% endif %}
-                                    {% if property.classe %}
-                                    <li class="list-group-item"><i class="bi bi-energy"></i> Classe Energetica: {{ property.classe }}</li>
-                                    {% endif %}
-                                    {% if property.anno %}
-                                    <li class="list-group-item"><i class="bi bi-calendar"></i> Anno Costruzione: {{ property.anno }}</li>
-                                    {% endif %}
-                                </ul>
-                            </div>
+                <div class="property-features mb-4">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <p><strong>Bedrooms:</strong> {{ property.bedrooms or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Bathrooms:</strong> {{ property.bathrooms or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Size:</strong> {{ property.square_meters or 'N/A' }} m²</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Year Built:</strong> {{ property.year_built or 'N/A' }}</p>
                         </div>
                     </div>
                     
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-body">
-                                <h5 class="card-title">Comfort</h5>
-                                <ul class="list-group list-group-flush">
-                                    {% if property.riscaldamento %}
-                                    <li class="list-group-item">
-                                        <i class="bi bi-thermometer"></i> Riscaldamento: 
-                                        {% if property.riscaldamento == 'AUTONOMO' %}Autonomo{% else %}Centralizzato{% endif %}
-                                    </li>
-                                    {% endif %}
-                                    {% if property.condizionatore %}
-                                    <li class="list-group-item"><i class="bi bi-snow"></i> Aria Condizionata</li>
-                                    {% endif %}
-                                    {% if property.ascensore %}
-                                    <li class="list-group-item"><i class="bi bi-elevator"></i> Ascensore</li>
-                                    {% endif %}
-                                    {% if property.garage %}
-                                    <li class="list-group-item"><i class="bi bi-car-front"></i> Garage</li>
-                                    {% endif %}
-                                    {% if property.arredato %}
-                                    <li class="list-group-item"><i class="bi bi-house-gear"></i> Arredato</li>
-                                    {% endif %}
-                                </ul>
-                            </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <p><strong>Floor:</strong> {{ property.floor or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Elevator:</strong> {{ 'Yes' if property.has_elevator else 'No' if property.has_elevator is not none else 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Heating:</strong> {{ property.heating or 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p><strong>Energy Class:</strong> {{ property.energy_class or 'N/A' }}</p>
                         </div>
                     </div>
                 </div>
                 
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Descrizione</h5>
-                        <p class="card-text">{{ property.descrizione }}</p>
-                    </div>
+                <div class="property-description">
+                    <h4>Description</h4>
+                    <p>{{ property.description or 'No description available.' }}</p>
                 </div>
                 
-                {% if property.note %}
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Note</h5>
-                        <p class="card-text">{{ property.note }}</p>
-                    </div>
-                </div>
-                {% endif %}
-                
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Informazioni Aggiuntive</h5>
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item"><i class="bi bi-link"></i> <a href="{{ property.url }}" target="_blank">Pagina originale</a></li>
-                            <li class="list-group-item"><i class="bi bi-calendar-check"></i> Scrapato il: {{ property.scrape_date }}</li>
-                            {% if property.publication_date %}
-                            <li class="list-group-item"><i class="bi bi-calendar-event"></i> Pubblicato il: {{ property.publication_date }}</li>
-                            {% endif %}
-                            <li class="list-group-item"><i class="bi bi-file-earmark-text"></i> File HTML: {{ property.raw_html_file }}</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
+                 {% if property.features and property.features|length > 0 %}
+                 <div class="property-features mt-4">
+                     <h4>Features</h4>
+                     <ul class="list-unstyled">
+                         {% for feature in property.features %}
+                         <li class="mb-2"><span class="badge bg-light text-dark">{{ feature }}</span></li>
+                         {% endfor %}
+                     </ul>
+                 </div>
+                 {% endif %}
+             </div>
+         </div>
+         
+         <!-- Iframe Container - will be populated by JavaScript -->
+         <div class="row mt-4">
+             <div class="col-md-12">
+                 <div class="card" id="iframe-card" style="display: none;">
+                     <div class="card-body">
+                         <h5 class="card-title">Original Listing</h5>
+                         <div id="iframe-container" style="display: none;"></div>
+                     </div>
+                 </div>
+             </div>
+         </div>
     </div>
     
     <div class="col-md-4">
         <div class="card mb-4">
             <div class="card-body">
-                <h5 class="card-title">Agenzia</h5>
-                <p class="card-text">{{ property.agenzia }}</p>
-                <a href="/search?agenzia={{ property.agenzia }}" class="btn btn-outline-primary w-100">Altri immobili di questa agenzia</a>
+                <h5 class="card-title">Property Details</h5>
+                <dl class="row">
+                    <dt class="col-sm-6">Agency:</dt>
+                    <dd class="col-sm-6">{{ property.agency or 'N/A' }}</dd>
+                    
+                     <dt class="col-sm-6">Agency Listing ID:</dt>
+                     <dd class="col-sm-6">{{ property.agency_listing_id or 'N/A' }}</dd>
+                    
+                    <dt class="col-sm-6">Scraped On:</dt>
+                    <dd class="col-sm-6">{{ property.scrape_date or 'N/A' }}</dd>
+                    
+                    <dt class="col-sm-6">Published On:</dt>
+                    <dd class="col-sm-6">{{ property.publication_date or 'N/A' }}</dd>
+                </dl>
+                
+                  <div class="mt-4 d-grid gap-2">
+                      <a href="{{ property.url }}" class="btn btn-primary" target="_blank">
+                          View Original Listing
+                      </a>
+                      <button class="btn btn-secondary" onclick="loadOriginalListingIframe('{{ property.url }}')">
+                          Open Original Listing Below
+                      </button>
+                      <button class="btn btn-success" onclick="saveAsExample({{ property.id }})" id="saveExampleBtn">
+                          Save as Example
+                      </button>
+                  </div>
             </div>
         </div>
         
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">Azioni</h5>
-                <a href="{{ property.url }}" target="_blank" class="btn btn-primary w-100 mb-2">Vedi su Tettorosso</a>
-                <a href="/" class="btn btn-outline-secondary w-100">Torna alla Home</a>
+                <h5 class="card-title">Contact Agency</h5>
+                <p>Interested in this property? Contact the agency directly.</p>
+                <button class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#contactModal">
+                    Contact Agency
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactModalLabel">Contact Agency</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="contactName" class="form-label">Your Name</label>
+                        <input type="text" class="form-control" id="contactName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="contactEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactPhone" class="form-label">Phone</label>
+                        <input type="tel" class="form-control" id="contactPhone">
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactMessage" class="form-label">Message</label>
+                        <textarea class="form-control" id="contactMessage" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">Send Message</button>
             </div>
         </div>
     </div>
