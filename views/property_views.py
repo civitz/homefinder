@@ -16,6 +16,7 @@ def search_properties():
     max_price = request.args.get('max_price', type=float)
     min_size = request.args.get('min_size', type=int)
     contract_type = request.args.get('contract_type')
+    agency_id = request.args.get('agency_id', type=int)
     
     # Implement actual search logic with database
     try:
@@ -34,6 +35,8 @@ def search_properties():
             search_criteria['min_size'] = min_size
         if contract_type:
             search_criteria['contract_type'] = contract_type
+        if agency_id:
+            search_criteria['agency_id'] = agency_id
         
         # Search database
         properties = db_manager.search_listings(**search_criteria)
@@ -52,8 +55,12 @@ def search_properties():
                 'square_meters': prop.square_meters,
                 'contract_type': prop.contract_type.value,
                 'url': prop.url,
-                'agency_listing_id': prop.agency_listing_id
+                'agency_listing_id': prop.agency_listing_id,
+                'agency_id': prop.agency_id
             })
+        
+        # Get all agencies for dropdown
+        agencies = db_manager.get_all_agencies()
         
         return render_template('search.html', 
                              properties=properties_data, 
@@ -62,8 +69,10 @@ def search_properties():
                                  'min_price': min_price,
                                  'max_price': max_price,
                                  'min_size': min_size,
-                                 'contract_type': contract_type
-                             })
+                                 'contract_type': contract_type,
+                                 'agency_id': agency_id
+                             },
+                             agencies=agencies)
     
     except Exception as e:
         current_app.logger.error(f"Error in property search: {e}")
@@ -74,8 +83,10 @@ def search_properties():
                                  'min_price': min_price,
                                  'max_price': max_price,
                                  'min_size': min_size,
-                                 'contract_type': contract_type
-                             })
+                                 'contract_type': contract_type,
+                                 'agency_id': agency_id
+                             },
+                             agencies=[])
 
 
 @property_bp.route('/<int:property_id>')
@@ -116,7 +127,8 @@ def property_detail(property_id: int):
                 'scrape_date': property_data.scrape_date,
                 'publication_date': property_data.publication_date,
                 'modify_date': property_data.modify_date,
-                'agency': property_data.agency,
+                'agency_id': property_data.agency_id,
+                'agency': db_manager.get_agency_by_id(property_data.agency_id).name if db_manager.get_agency_by_id(property_data.agency_id) else 'Unknown Agency',
                 'contract_type': property_data.contract_type.value,
                 'url': property_data.url,
                 'agency_listing_id': property_data.agency_listing_id
@@ -256,11 +268,14 @@ def api_search():
             search_criteria['max_price'] = float(params['max_price'])
         if 'min_size' in params:
             search_criteria['min_size'] = int(params['min_size'])
-        if 'contract_type' in params:
-            search_criteria['contract_type'] = params['contract_type']
-        
-        # Search database
-        results = db_manager.search_listings(**search_criteria)
+            if 'contract_type' in params:
+                search_criteria['contract_type'] = params['contract_type']
+            
+            if 'agency_id' in params:
+                search_criteria['agency_id'] = int(params['agency_id'])
+            
+            # Search database
+            results = db_manager.search_listings(**search_criteria)
         
         # Convert to JSON-friendly format
         results_data = []
@@ -275,7 +290,7 @@ def api_search():
                 'bathrooms': prop.bathrooms,
                 'square_meters': prop.square_meters,
                 'contract_type': prop.contract_type.value,
-                'agency': prop.agency,
+                'agency_id': prop.agency_id,
                 'url': prop.url
             })
         

@@ -47,7 +47,7 @@ class Listing:
     
     # Basic information
     title: str
-    agency: str
+    agency_id: int
     url: str
     description: str
     
@@ -95,8 +95,8 @@ class Listing:
     def to_dict(self) -> Dict[str, Any]:
         """Convert listing to dictionary for JSON serialization."""
         return {
-            "title": self.title,
-            "agency": self.agency,
+             "title": self.title,
+            "agency_id": self.agency_id,
             "url": self.url,
             "description": self.description,
             "contract_type": self.contract_type.value,
@@ -129,9 +129,15 @@ class Listing:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Listing':
         """Create listing from dictionary."""
+        # Handle backward compatibility - if agency is provided but not agency_id
+        if "agency" in data and "agency_id" not in data:
+            # This is for backward compatibility during transition
+            # In production, you should always use agency_id
+            data["agency_id"] = data.get("agency_id", 0)  # Default to 0 if not provided
+        
         return cls(
             title=data["title"],
-            agency=data["agency"],
+            agency_id=data["agency_id"],
             url=data["url"],
             description=data["description"],
             contract_type=Contract(data["contract_type"]),
@@ -160,6 +166,13 @@ class Listing:
             agency_listing_id=data.get("agency_listing_id"),
             modify_date=datetime.fromisoformat(data["modify_date"]) if data.get("modify_date") else None
         )
+
+    def get_agency_name(self, db_manager) -> str:
+        """Get agency name from agency_id using database manager."""
+        if hasattr(db_manager, 'get_agency_by_id'):
+            agency = db_manager.get_agency_by_id(self.agency_id)
+            return agency.name if agency else "Unknown Agency"
+        return "Unknown Agency"
 
     def clean_price(self, price_str: str) -> float:
         """Clean and convert price string to float."""

@@ -121,9 +121,9 @@ class TettorossoScraper(BaseScraper):
         
         # Create listing object with all required parameters
         listing = Listing(
-            title=title,
-            agency="Tettorosso Immobiliare",
-            url=source,  # Use file path as URL for examples
+             title=title,
+             agency_id=2,  # Tettorosso Immobiliare
+           url=source,  # Use file path as URL for examples
             description=description,
             contract_type=contract_type,
             price=price,
@@ -578,9 +578,9 @@ class GalileoScraper(BaseScraper):
         
         # Create listing object with all required parameters
         listing = Listing(
-            title=title,
-            agency="Galileo Immobiliare",
-            url=source,  # Use file path as URL for examples
+             title=title,
+             agency_id=1,  # Galileo Immobiliare
+           url=source,  # Use file path as URL for examples
             description=description,
             contract_type=contract_type,
             price=price,

@@ -31,7 +31,7 @@ def get_properties():
                 "bathrooms": prop.bathrooms,
                 "square_meters": prop.square_meters,
                 "contract_type": prop.contract_type.value,
-                "agency": prop.agency,
+                "agency_id": prop.agency_id,
                 "url": prop.url,
                 "agency_listing_id": prop.agency_listing_id
             })
@@ -74,7 +74,7 @@ def get_property(property_id: int):
                 "bathrooms": property_data.bathrooms,
                 "square_meters": property_data.square_meters,
                 "contract_type": property_data.contract_type.value,
-                "agency": property_data.agency,
+                "agency_id": property_data.agency_id,
                 "url": property_data.url,
                 "agency_listing_id": property_data.agency_listing_id,
                 "description": property_data.description

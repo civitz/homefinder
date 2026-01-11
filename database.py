@@ -3,9 +3,22 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 import logging
 from datetime import datetime
+from dataclasses import dataclass
 
 from models import Listing
 from config import DB_FILE
+
+@dataclass
+class Agency:
+    """Data model for agencies."""
+    id: int
+    name: str
+    website_url: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    created_at: str = ""
+    updated_at: str = ""
 
 
 class DatabaseManager:
@@ -22,12 +35,26 @@ class DatabaseManager:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # Create listings table
+                # Create agencies table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS agencies (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT UNIQUE NOT NULL,
+                        website_url TEXT NOT NULL,
+                        phone TEXT,
+                        email TEXT,
+                        address TEXT,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    )
+                ''')
+                
+                # Create listings table (updated to use agency_id instead of agency)
                 cursor.execute('''
                      CREATE TABLE IF NOT EXISTS listings (
                          id INTEGER PRIMARY KEY AUTOINCREMENT,
                          title TEXT NOT NULL,
-                         agency TEXT NOT NULL,
+                         agency_id INTEGER NOT NULL,
                          url TEXT UNIQUE NOT NULL,
                          description TEXT,
                          contract_type TEXT NOT NULL,
@@ -53,16 +80,18 @@ class DatabaseManager:
                          publication_date TEXT,
                          raw_html_file TEXT,
                          agency_listing_id TEXT,
-                         modify_date TEXT
+                         modify_date TEXT,
+                         FOREIGN KEY (agency_id) REFERENCES agencies(id)
                      )
                  ''')
-                
+                 
                 # Create indexes for better search performance
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_city ON listings(city)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_price ON listings(price)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_contract ON listings(contract_type)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_square_meters ON listings(square_meters)')
-                
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_agency ON listings(agency_id)')
+                 
                 conn.commit()
                 
         except sqlite3.Error as e:
@@ -72,6 +101,85 @@ class DatabaseManager:
     def _get_connection(self) -> sqlite3.Connection:
         """Get database connection."""
         return sqlite3.connect(str(self.db_path))
+    
+    def get_agency_by_id(self, agency_id: int):
+        """Get agency by ID."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT id, name, website_url, phone, email, address, created_at, updated_at FROM agencies WHERE id = ?', (agency_id,))
+                row = cursor.fetchone()
+                
+                if row:
+                    return Agency(
+                        id=row[0],
+                        name=row[1],
+                        website_url=row[2],
+                        phone=row[3],
+                        email=row[4],
+                        address=row[5],
+                        created_at=row[6],
+                        updated_at=row[7]
+                    )
+                
+                return None
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching agency by ID {agency_id}: {e}")
+            return None
+    
+    def get_agency_by_name(self, agency_name: str):
+        """Get agency by name."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT id, name, website_url, phone, email, address, created_at, updated_at FROM agencies WHERE name = ?', (agency_name,))
+                row = cursor.fetchone()
+                
+                if row:
+                    return Agency(
+                        id=row[0],
+                        name=row[1],
+                        website_url=row[2],
+                        phone=row[3],
+                        email=row[4],
+                        address=row[5],
+                        created_at=row[6],
+                        updated_at=row[7]
+                    )
+                
+                return None
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching agency by name {agency_name}: {e}")
+            return None
+    
+    def get_all_agencies(self) -> List[Agency]:
+        """Get all agencies."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT id, name, website_url, phone, email, address, created_at, updated_at FROM agencies ORDER BY name')
+                rows = cursor.fetchall()
+                
+                agencies = []
+                for row in rows:
+                    agencies.append(Agency(
+                        id=row[0],
+                        name=row[1],
+                        website_url=row[2],
+                        phone=row[3],
+                        email=row[4],
+                        address=row[5],
+                        created_at=row[6],
+                        updated_at=row[7]
+                    ))
+                
+                return agencies
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching all agencies: {e}")
+            return []
     
     def save_listing(self, listing: Listing) -> int:
         """Save a single listing to database."""
@@ -84,117 +192,117 @@ class DatabaseManager:
                 # Check if listing already exists
                 cursor.execute('SELECT id FROM listings WHERE url = ?', (listing.url,))
                 existing = cursor.fetchone()
-                 
+                
                 if existing:
-                    # Update existing listing
-                    update_query = '''
-                        UPDATE listings SET 
-                            title = ?,
-                            agency = ?,
-                            description = ?,
-                            contract_type = ?,
-                            price = ?,
-                            city = ?,
-                            neighborhood = ?,
-                            address = ?,
-                            rooms = ?,
-                            bedrooms = ?,
-                            bathrooms = ?,
-                            square_meters = ?,
-                            floor = ?,
-                            year_built = ?,
-                            has_elevator = ?,
-                            heating = ?,
-                            has_air_conditioning = ?,
-                            has_garage = ?,
-                            is_furnished = ?,
-                            energy_class = ?,
-                            energy_consumption = ?,
-                            features = ?,
-                            scrape_date = ?,
-                            publication_date = ?,
-                            raw_html_file = ?,
+                     # Update existing listing
+                     update_query = '''
+                         UPDATE listings SET 
+                             title = ?,
+                             agency_id = ?,
+                             description = ?,
+                             contract_type = ?,
+                             price = ?,
+                             city = ?,
+                             neighborhood = ?,
+                             address = ?,
+                             rooms = ?,
+                             bedrooms = ?,
+                             bathrooms = ?,
+                             square_meters = ?,
+                             floor = ?,
+                             year_built = ?,
+                             has_elevator = ?,
+                             heating = ?,
+                             has_air_conditioning = ?,
+                             has_garage = ?,
+                             is_furnished = ?,
+                             energy_class = ?,
+                             energy_consumption = ?,
+                             features = ?,
+                             scrape_date = ?,
+                             publication_date = ?,
+                             raw_html_file = ?,
                              agency_listing_id = ?
-                        WHERE url = ?
-                    '''
+                         WHERE url = ?
+                     '''
                      
-                    cursor.execute(update_query, (
-                        listing_dict['title'],
-                        listing_dict['agency'],
-                        listing_dict['description'],
-                        listing_dict['contract_type'],
-                        listing_dict['price'],
-                        listing_dict['city'],
-                        listing_dict['neighborhood'],
-                        listing_dict['address'],
-                        listing_dict['rooms'],
-                        listing_dict['bedrooms'],
-                        listing_dict['bathrooms'],
-                        listing_dict['square_meters'],
-                        listing_dict['floor'],
-                        listing_dict['year_built'],
-                        listing_dict['has_elevator'],
-                        listing_dict['heating'],
-                        listing_dict['has_air_conditioning'],
-                        listing_dict['has_garage'],
-                        listing_dict['is_furnished'],
-                        listing_dict['energy_class'],
-                        listing_dict['energy_consumption'],
-                        str(listing_dict['features']) if listing_dict['features'] else None,
-                        listing_dict['scrape_date'],
-                        listing_dict['publication_date'],
-                        listing_dict['raw_html_file'],
+                     cursor.execute(update_query, (
+                         listing_dict['title'],
+                         listing_dict['agency_id'],
+                         listing_dict['description'],
+                         listing_dict['contract_type'],
+                         listing_dict['price'],
+                         listing_dict['city'],
+                         listing_dict['neighborhood'],
+                         listing_dict['address'],
+                         listing_dict['rooms'],
+                         listing_dict['bedrooms'],
+                         listing_dict['bathrooms'],
+                         listing_dict['square_meters'],
+                         listing_dict['floor'],
+                         listing_dict['year_built'],
+                         listing_dict['has_elevator'],
+                         listing_dict['heating'],
+                         listing_dict['has_air_conditioning'],
+                         listing_dict['has_garage'],
+                         listing_dict['is_furnished'],
+                         listing_dict['energy_class'],
+                         listing_dict['energy_consumption'],
+                         str(listing_dict['features']) if listing_dict['features'] else None,
+                         listing_dict['scrape_date'],
+                         listing_dict['publication_date'],
+                         listing_dict['raw_html_file'],
                          listing_dict['agency_listing_id'],
-                        listing.url
-                    ))
+                         listing.url
+                     ))
                      
-                    self.logger.info(f"Updated existing listing: {listing.url}")
+                     self.logger.info(f"Updated existing listing: {listing.url}")
                 else:
-                    # Insert new listing
-                    insert_query = '''
-                        INSERT INTO listings (
-                            title, agency, url, description, contract_type, price, city, 
-                            neighborhood, address, rooms, bedrooms, bathrooms, square_meters, 
-                            floor, year_built, has_elevator, heating, has_air_conditioning, 
-                            has_garage, is_furnished, energy_class, energy_consumption, 
-                             features, scrape_date, publication_date, raw_html_file, agency_listing_id
-                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    '''
+                     # Insert new listing
+                     insert_query = '''
+                         INSERT INTO listings (
+                             title, agency_id, url, description, contract_type, price, city, 
+                             neighborhood, address, rooms, bedrooms, bathrooms, square_meters, 
+                             floor, year_built, has_elevator, heating, has_air_conditioning, 
+                             has_garage, is_furnished, energy_class, energy_consumption, 
+                              features, scrape_date, publication_date, raw_html_file, agency_listing_id
+                          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     '''
                      
-                    cursor.execute(insert_query, (
-                        listing_dict['title'],
-                        listing_dict['agency'],
-                        listing_dict['url'],
-                        listing_dict['description'],
-                        listing_dict['contract_type'],
-                        listing_dict['price'],
-                        listing_dict['city'],
-                        listing_dict['neighborhood'],
-                        listing_dict['address'],
-                        listing_dict['rooms'],
-                        listing_dict['bedrooms'],
-                        listing_dict['bathrooms'],
-                        listing_dict['square_meters'],
-                        listing_dict['floor'],
-                        listing_dict['year_built'],
-                        listing_dict['has_elevator'],
-                        listing_dict['heating'],
-                        listing_dict['has_air_conditioning'],
-                        listing_dict['has_garage'],
-                        listing_dict['is_furnished'],
-                        listing_dict['energy_class'],
-                        listing_dict['energy_consumption'],
-                        str(listing_dict['features']) if listing_dict['features'] else None,
-                        listing_dict['scrape_date'],
-                        listing_dict['publication_date'],
-                        listing_dict['raw_html_file'],
-                         listing_dict['agency_listing_id']
-                    ))
+                     cursor.execute(insert_query, (
+                         listing_dict['title'],
+                         listing_dict['agency_id'],
+                         listing_dict['url'],
+                         listing_dict['description'],
+                         listing_dict['contract_type'],
+                         listing_dict['price'],
+                         listing_dict['city'],
+                         listing_dict['neighborhood'],
+                         listing_dict['address'],
+                         listing_dict['rooms'],
+                         listing_dict['bedrooms'],
+                         listing_dict['bathrooms'],
+                         listing_dict['square_meters'],
+                         listing_dict['floor'],
+                         listing_dict['year_built'],
+                         listing_dict['has_elevator'],
+                         listing_dict['heating'],
+                         listing_dict['has_air_conditioning'],
+                         listing_dict['has_garage'],
+                         listing_dict['is_furnished'],
+                         listing_dict['energy_class'],
+                         listing_dict['energy_consumption'],
+                         str(listing_dict['features']) if listing_dict['features'] else None,
+                         listing_dict['scrape_date'],
+                         listing_dict['publication_date'],
+                         listing_dict['raw_html_file'],
+                          listing_dict['agency_listing_id']
+                     ))
                      
-                    self.logger.info(f"Inserted new listing: {listing.url}")
+                     self.logger.info(f"Inserted new listing: {listing.url}")
                  
                 conn.commit()
-                
+                 
                 if existing:
                     # Return the existing ID for updates
                     return existing[0]
@@ -332,6 +440,10 @@ class DatabaseManager:
                 query += ' AND contract_type = ?'
                 params.append(kwargs['contract_type'])
             
+            if 'agency_id' in kwargs and kwargs['agency_id']:
+                query += ' AND agency_id = ?'
+                params.append(kwargs['agency_id'])
+            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
@@ -361,36 +473,36 @@ class DatabaseManager:
         """Convert database row to Listing object."""
         # Map row to listing fields
         listing_data = {
-             'id': row[0],
-             'title': row[1],
-             'agency': row[2],
-             'url': row[3],
-             'description': row[4],
-             'contract_type': row[5],
-             'price': row[6],
-             'city': row[7],
-             'neighborhood': row[8],
-             'address': row[9],
-             'rooms': row[10],
-             'bedrooms': row[11],
-             'bathrooms': row[12],
-             'square_meters': row[13],
-             'floor': row[14],
-             'year_built': row[15],
-             'has_elevator': row[16],
-             'heating': row[17],
-             'has_air_conditioning': row[18],
-             'has_garage': row[19],
-             'is_furnished': row[20],
-             'energy_class': row[21],
-             'energy_consumption': row[22],
-             'features': row[23],
-             'scrape_date': row[24],
-             'publication_date': row[25],
-             'raw_html_file': row[26],
-             'agency_listing_id': row[27],
-             'modify_date': row[28]
-         }
+               'id': row[0],
+               'title': row[1],
+               'url': row[2],
+              'description': row[3],
+              'contract_type': row[4],
+              'price': row[5],
+              'city': row[6],
+              'neighborhood': row[7],
+              'address': row[8],
+              'rooms': row[9],
+              'bedrooms': row[10],
+              'bathrooms': row[11],
+              'square_meters': row[12],
+              'floor': row[13],
+              'year_built': row[14],
+              'has_elevator': row[15],
+              'heating': row[16],
+              'has_air_conditioning': row[17],
+              'has_garage': row[18],
+              'is_furnished': row[19],
+              'energy_class': row[20],
+              'energy_consumption': row[21],
+              'features': row[22],
+              'scrape_date': row[23],
+              'publication_date': row[24],
+              'raw_html_file': row[25],
+              'agency_listing_id': row[26],
+              'modify_date': row[27],
+              'agency_id': row[28]
+          }
         
         # Convert features from string back to list
         if listing_data['features']:

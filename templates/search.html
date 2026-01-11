@@ -43,7 +43,7 @@
                                    placeholder="e.g., 80">
                         </div>
                         
-                        <div class="col-md-2">
+                         <div class="col-md-2">
                             <label for="contract_type" class="form-label">Contract Type</label>
                             <select class="form-select" id="contract_type" name="contract_type">
                                 <option value="">All</option>
@@ -52,6 +52,18 @@
                             </select>
                         </div>
                         
+                         <div class="col-md-2">
+                            <label for="agency_id" class="form-label">Agency</label>
+                            <select class="form-select" id="agency_id" name="agency_id">
+                                <option value="">All Agencies</option>
+                                {% if agencies %}
+                                {% for agency in agencies %}
+                                <option value="{{ agency.id }}" {% if search_params.agency_id == agency.id %}selected{% endif %}>{{ agency.name }}</option>
+                                {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                         
                         <div class="col-md-1 d-flex align-items-end">
                             <button type="submit" class="btn btn-primary w-100">Search</button>
                         </div>
