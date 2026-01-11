@@ -17,8 +17,8 @@
 
 <div class="row">
     <div class="col-md-8">
-        <div class="card mb-4">
-                 <div class="card-body">
+       <div class="card mb-4">
+           <div class="card-body">
                      <!-- Read-only view -->
                      <div id="readOnlyView">
                          <h1 class="card-title display-5">{{ property.title }}</h1>
@@ -258,85 +258,85 @@
                      </div>
                      
                  </div>
-                 </div>
-             </div>
+          </div>
+      </div>
+  </div>
+
+   <!-- Property Details Card - moved back to right column -->
+   <div class="col-md-4">
+       <div class="card mb-4">
+           <div class="card-body">
+               <h5 class="card-title">Property Details</h5>
+               
+               <!-- Edit mode controls (hidden by default) -->
+               <div id="editControls" style="display: none;" class="mb-3">
+                   <button class="btn btn-primary btn-sm" onclick="savePropertyEdits({{ property.id }})" id="saveEditsBtn">
+                       Save Changes
+                   </button>
+                   <button class="btn btn-secondary btn-sm" onclick="cancelPropertyEdits()" id="cancelEditsBtn">
+                       Cancel
+                   </button>
+               </div>
+               
+               <dl class="row">
+                   <dt class="col-sm-6">Agency:</dt>
+                   <dd class="col-sm-6">{{ property.agency or 'N/A' }}</dd>
+                   
+                   <dt class="col-sm-6">Agency Listing ID:</dt>
+                   <dd class="col-sm-6">{{ property.agency_listing_id or 'N/A' }}</dd>
+                   
+                   <dt class="col-sm-6">Scraped On:</dt>
+                   <dd class="col-sm-6">{{ property.scrape_date or 'N/A' }}</dd>
+                   
+                   <dt class="col-sm-6">Published On:</dt>
+                   <dd class="col-sm-6">{{ property.publication_date or 'N/A' }}</dd>
+                   
+                   <dt class="col-sm-6">Last Modified:</dt>
+                   <dd class="col-sm-6">{{ property.modify_date or 'Never' }}</dd>
+               </dl>
+               
+               <div class="mt-4 d-grid gap-2">
+                   <a href="{{ property.url }}" class="btn btn-primary" target="_blank">
+                       View Original Listing
+                   </a>
+                   <button class="btn btn-secondary" onclick="loadOriginalListingIframe('{{ property.url }}')">
+                       Open Original Listing Below
+                   </button>
+                   <button class="btn btn-success" onclick="saveAsExample({{ property.id }})" id="saveExampleBtn">
+                       Save as Example
+                   </button>
+                   <button class="btn btn-warning" onclick="toggleEditMode()" id="editBtn">
+                       Edit Listing
+                   </button>
+               </div>
+            </div>
          </div>
          
-         <!-- Iframe Container - will be populated by JavaScript -->
-         <div class="row mt-4">
-             <div class="col-md-12">
-                 <div class="card" id="iframe-card" style="display: none;">
-                     <div class="card-body">
-                         <h5 class="card-title">Original Listing</h5>
-                         <div id="iframe-container" style="display: none;"></div>
-                     </div>
-                 </div>
+         <div class="card">
+             <div class="card-body">
+                 <h5 class="card-title">Contact Agency</h5>
+                 <p>Interested in this property? Contact the agency directly.</p>
+                 <button class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#contactModal">
+                     Contact Agency
+                 </button>
              </div>
          </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card mb-4">
-                 <div class="card-body">
-                     <h5 class="card-title">Property Details</h5>
-                     
-                     <!-- Edit mode controls (hidden by default) -->
-                     <div id="editControls" style="display: none;" class="mb-3">
-                         <button class="btn btn-primary btn-sm" onclick="savePropertyEdits({{ property.id }})" id="saveEditsBtn">
-                             Save Changes
-                         </button>
-                         <button class="btn btn-secondary btn-sm" onclick="cancelPropertyEdits()" id="cancelEditsBtn">
-                             Cancel
-                         </button>
-                     </div>
-                     
-                     <dl class="row">
-                    <dt class="col-sm-6">Agency:</dt>
-                    <dd class="col-sm-6">{{ property.agency or 'N/A' }}</dd>
-                    
-                     <dt class="col-sm-6">Agency Listing ID:</dt>
-                     <dd class="col-sm-6">{{ property.agency_listing_id or 'N/A' }}</dd>
-                    
-                    <dt class="col-sm-6">Scraped On:</dt>
-                    <dd class="col-sm-6">{{ property.scrape_date or 'N/A' }}</dd>
-                    
-                     <dt class="col-sm-6">Published On:</dt>
-                     <dd class="col-sm-6">{{ property.publication_date or 'N/A' }}</dd>
-                     
-                     <dt class="col-sm-6">Last Modified:</dt>
-                     <dd class="col-sm-6">{{ property.modify_date or 'Never' }}</dd>
-                 </dl>
-                
-                  <div class="mt-4 d-grid gap-2">
-                      <a href="{{ property.url }}" class="btn btn-primary" target="_blank">
-                          View Original Listing
-                      </a>
-                      <button class="btn btn-secondary" onclick="loadOriginalListingIframe('{{ property.url }}')">
-                          Open Original Listing Below
-                      </button>
-                       <button class="btn btn-success" onclick="saveAsExample({{ property.id }})" id="saveExampleBtn">
-                           Save as Example
-                       </button>
-                       <button class="btn btn-warning" onclick="toggleEditMode()" id="editBtn">
-                           Edit Listing
-                       </button>
-                   </div>
-            </div>
-        </div>
-        
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Contact Agency</h5>
-                <p>Interested in this property? Contact the agency directly.</p>
-                <button class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#contactModal">
-                    Contact Agency
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+     </div>
+ </div>
 
-<!-- Contact Modal -->
+ <!-- Iframe Container - will be populated by JavaScript -->
+ <div class="row mt-4">
+     <div class="col-md-12">
+         <div class="card" id="iframe-card" style="display: none;">
+             <div class="card-body">
+                 <h5 class="card-title">Original Listing</h5>
+                 <div id="iframe-container" style="display: none;"></div>
+             </div>
+         </div>
+     </div>
+ </div>
+ 
+ <!-- Contact Modal -->
 <div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
