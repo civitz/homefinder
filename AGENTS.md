@@ -24,7 +24,6 @@ The project follows a three-step process:
 - **typing**: Type hints for better code maintainability
 - **pathlib**: Filesystem path manipulation
 - **enum**: Enumerated types for contract and heating types
-- **scrapy**: to navigate websites and download listings HTML pages
 
 ## Supported websites
 
