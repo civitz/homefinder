@@ -7,6 +7,9 @@ import logging
 from datetime import datetime
 import re
 
+# Import for poison pill (will be passed from main)
+from typing import Any
+
 from models import Listing, Contract, Riscaldamento
 from config import USER_AGENT, REQUEST_TIMEOUT, MAX_RETRIES, REQUEST_DELAY_MS, DOWNLOAD_DIR
 
@@ -14,15 +17,23 @@ from config import USER_AGENT, REQUEST_TIMEOUT, MAX_RETRIES, REQUEST_DELAY_MS, D
 class BaseScraper:
     """Base scraper class with common functionality."""
     
-    def __init__(self, base_url: str, name: str, request_delay_ms: Optional[int] = None):
+    def __init__(self, base_url: str, name: str, request_delay_ms: Optional[int] = None, stop_signal: Any = None):
         self.base_url = base_url
         self.name = name
         self.logger = logging.getLogger(f"scraper.{name}")
         self.session = requests.Session()
         self.request_delay_ms = request_delay_ms if request_delay_ms is not None else REQUEST_DELAY_MS
+        self.stop_signal = stop_signal
         self.session.headers.update({
             'User-Agent': USER_AGENT,
         })
+
+    def _should_stop(self) -> bool:
+        """Check if scraper should stop gracefully due to poison pill."""
+        if self.stop_signal and self.stop_signal.load():
+            self.logger.info("Poison pill detected, stopping gracefully after current listing")
+            return True
+        return False
     
     def fetch_url(self, url: str) -> Optional[str]:
         """Fetch URL with retries and error handling."""
@@ -60,11 +71,12 @@ class BaseScraper:
 class TettorossoScraper(BaseScraper):
     """Scraper for Tettorosso Immobiliare website."""
     
-    def __init__(self, request_delay_ms: Optional[int] = None):
+    def __init__(self, request_delay_ms: Optional[int] = None, stop_signal: Any = None):
         super().__init__(
             base_url="https://www.tettorossoimmobiliare.it",
             name="tettorosso",
-            request_delay_ms=request_delay_ms
+            request_delay_ms=request_delay_ms,
+            stop_signal=stop_signal
         )
         self.session.headers.update({
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -520,6 +532,10 @@ class TettorossoScraper(BaseScraper):
                                     self.logger.warning(f"Failed to parse Tettorosso property: {link}")
                             else:
                                 self.logger.warning(f"Failed to fetch Tettorosso property page: {link}")
+                         
+                            # Check poison pill after each listing
+                            if self._should_stop():
+                                    break
                         
                         except Exception as e:
                             self.logger.error(f"Error scraping Tettorosso {link}: {e}")
@@ -529,6 +545,11 @@ class TettorossoScraper(BaseScraper):
                     if current_page >= total_pages:
                         has_more_pages = False
                         self.logger.info(f"Reached last page ({current_page}/{total_pages})")
+                    
+                    # Check poison pill after each page
+                    if self._should_stop():
+                        has_more_pages = False
+                        break
                     
                     current_page += 1
                     
@@ -546,11 +567,12 @@ class TettorossoScraper(BaseScraper):
 class GalileoScraper(BaseScraper):
     """Scraper for Galileo Immobiliare website."""
     
-    def __init__(self, request_delay_ms: Optional[int] = None):
+    def __init__(self, request_delay_ms: Optional[int] = None, stop_signal: Any = None):
         super().__init__(
             base_url="https://www.galileoimmobiliare.it",
             name="galileo",
-            request_delay_ms=request_delay_ms
+            request_delay_ms=request_delay_ms,
+            stop_signal=stop_signal
         )
     
     def scrape_html_file(self, file_path: Path) -> Optional[Listing]:
@@ -927,6 +949,10 @@ class GalileoScraper(BaseScraper):
                                 listings.append(listing)
                                 self.logger.info(f"Successfully scraped: {listing.title}")
                         
+                        # Check poison pill after each listing
+                        if self._should_stop():
+                            break
+                    
                     except Exception as e:
                         self.logger.error(f"Error scraping {link}: {e}")
                 
@@ -934,6 +960,11 @@ class GalileoScraper(BaseScraper):
                 next_page_link = soup.find('a', class_='next')
                 if not next_page_link:
                     has_more_pages = False
+                
+                 # Check poison pill after each page
+                if self._should_stop():
+                    has_more_pages = False
+                    break
                 
                 page += 1
         

@@ -4,7 +4,7 @@
 import time
 import threading
 import logging
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 
 from scraper import TettorossoScraper, GalileoScraper
@@ -18,23 +18,25 @@ background_scraper_instance = None
 class BackgroundScraper:
     """Background service for periodic scraping of real estate websites."""
     
-    def __init__(self, interval_hours: int = 1, request_delay_ms: Optional[int] = None):
+    def __init__(self, interval_hours: int = 1, request_delay_ms: Optional[int] = None, stop_signal: Any = None):
         """Initialize the background scraper.
         
         Args:
             interval_hours: How often to run the scraping (in hours)
             request_delay_ms: Delay between HTTP requests in milliseconds
+            stop_signal: AtomicBool for graceful shutdown
         """
         self.interval_hours = interval_hours
         self.interval_seconds = interval_hours * 3600
         self.logger = logging.getLogger(__name__)
         self.running = False
         self.thread = None
+        self.stop_signal = stop_signal
         
         # Initialize scrapers and database
         self.scrapers = [
-            TettorossoScraper(request_delay_ms=request_delay_ms),
-            GalileoScraper(request_delay_ms=request_delay_ms)
+            TettorossoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_signal),
+            GalileoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_signal)
         ]
         self.db_manager = DatabaseManager()
     
@@ -46,6 +48,11 @@ class BackgroundScraper:
         """
         total_listings = 0
         
+        # Check poison pill before starting
+        if self.stop_signal and self.stop_signal.load():
+            self.logger.info("Skipping scraping run due to poison pill")
+            return 0
+            
         self.logger.info(f"Starting scraping run at {datetime.now()}")
         
         # Use threading to scrape websites in parallel
@@ -103,9 +110,13 @@ class BackgroundScraper:
                 
                 self.logger.info(f"Next scraping run in {sleep_time:.1f} seconds ({self.interval_hours} hours)")
                 
-                # Sleep until next run
+                 # Sleep until next run
                 for _ in range(int(sleep_time)):
                     if not self.running:
+                        break
+                    if self.stop_signal and self.stop_signal.load():
+                        self.logger.info("Background scraper stopping due to poison pill")
+                        self.running = False
                         break
                     time.sleep(1)
                     

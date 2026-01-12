@@ -11,11 +11,17 @@ from typing import Optional
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+# Import atomicx for poison pill
+from atomicx import AtomicBool
+
 from app import app
 from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR, DEBUG
 from scraper import TettorossoScraper, GalileoScraper
 from database import DatabaseManager
 from background_scraper import BackgroundScraper
+
+# Global poison pill for graceful shutdown
+stop_at_next = AtomicBool(False)
 
 
 def main(args=None):
@@ -42,8 +48,8 @@ def main(args=None):
         request_delay_ms = args.request_delay if args.request_delay is not None else None
         
         scrapers = [
-            TettorossoScraper(request_delay_ms=request_delay_ms),
-            GalileoScraper(request_delay_ms=request_delay_ms)
+            TettorossoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next),
+            GalileoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next)
         ]
         
         # Initialize background scraper
@@ -53,7 +59,8 @@ def main(args=None):
         else:
             background_scraper = BackgroundScraper(
                 interval_hours=args.scrape_interval,
-                request_delay_ms=request_delay_ms
+                request_delay_ms=request_delay_ms,
+                stop_signal=stop_at_next
             )
             # Set global instance for manual triggering
             from background_scraper import set_background_scraper
@@ -120,12 +127,16 @@ def main(args=None):
         finally:
             # Cleanup on exit
             if background_scraper:
+                stop_at_next.store(True)
                 background_scraper.stop()
         
     except KeyboardInterrupt:
+        stop_at_next.store(True)  # Set poison pill for graceful shutdown
+        logger.info("Ctrl-C detected, setting poison pill for graceful shutdown")
         logger.info("Shutting down HomeFinder application...")
     except Exception as e:
         logger.error(f"Fatal error: {e}")
+        stop_at_next.store(True)
         sys.exit(1)
 
 
