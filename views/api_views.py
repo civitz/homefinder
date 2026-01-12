@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, current_app
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 # Create API blueprint
@@ -138,6 +138,58 @@ def get_stats():
     })
 
 
+@api_bp.route('/scrape', methods=['GET'])
+def get_scrape_status():
+    """Get scrape status and history."""
+    try:
+        from database import DatabaseManager
+        from config import MIN_SCRAPE_INTERVAL_SECONDS
+        from datetime import datetime
+        
+        db_manager = DatabaseManager()
+        
+        # Get last scrape time
+        last_scrape_time = db_manager.get_last_scrape_time()
+        
+        # Calculate next scrape time
+        next_scrape_time = None
+        if last_scrape_time:
+            time_since_last = (datetime.now() - last_scrape_time).total_seconds()
+            if time_since_last < MIN_SCRAPE_INTERVAL_SECONDS:
+                remaining_seconds = MIN_SCRAPE_INTERVAL_SECONDS - time_since_last
+                next_scrape_time = datetime.now() + timedelta(seconds=remaining_seconds)
+            else:
+                # Should scrape now
+                next_scrape_time = datetime.now()
+        else:
+            # No previous scrape, can scrape now
+            next_scrape_time = datetime.now()
+        
+        # Get scrape history
+        scrape_history = db_manager.get_scrape_history(limit=10)
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "last_scrape": last_scrape_time.isoformat() if last_scrape_time else None,
+                "next_scrape": next_scrape_time.isoformat() if next_scrape_time else None,
+                "interval_seconds": MIN_SCRAPE_INTERVAL_SECONDS,
+                "history": scrape_history
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "data": {
+                "last_scrape": None,
+                "next_scrape": None,
+                "interval_seconds": 3600,  # Default value if config import fails
+                "history": []
+            }
+        })
+
 @api_bp.route('/scrape', methods=['POST'])
 def trigger_scrape():
     """Trigger manual scraping."""
@@ -154,8 +206,8 @@ def trigger_scrape():
             # Run scraping in background
             def run_scraping():
                 try:
-                    count = scraper.run_once()
-                    logging.info(f"API scraping completed: {count} listings found")
+                 count = scraper.run_once(force=True)
+                 logging.info(f"API scraping completed: {count} listings found")
                 except Exception as e:
                     logging.error(f"API scraping failed: {e}")
             

@@ -53,8 +53,9 @@ def admin():
         from database import DatabaseManager
         db_manager = DatabaseManager()
         stats = db_manager.get_stats()
+        scrape_history = db_manager.get_scrape_history(limit=10)
         
-        return render_template('admin.html', stats=stats)
+        return render_template('admin.html', stats=stats, scrape_history=scrape_history)
     except Exception as e:
         current_app.logger.error(f"Error loading admin page: {e}")
         flash(f"Error loading admin page: {e}", "error")
@@ -102,8 +103,8 @@ def admin_scrape():
             import threading
             def run_scraping():
                 try:
-                    count = scraper.run_once()
-                    current_app.logger.info(f"Manual scraping completed: {count} listings found")
+                 count = scraper.run_once(force=True)
+                 current_app.logger.info(f"Manual scraping completed: {count} listings found")
                 except Exception as e:
                     current_app.logger.error(f"Manual scraping failed: {e}")
             

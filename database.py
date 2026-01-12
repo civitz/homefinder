@@ -92,8 +92,19 @@ class DatabaseManager:
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_square_meters ON listings(square_meters)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_agency ON listings(agency_id)')
                  
+                 # Create scrape_history table
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS scrape_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TEXT NOT NULL,
+                        source TEXT NOT NULL,
+                        listings_count INTEGER,
+                        duration_seconds REAL
+                    )
+                ''')
+
                 conn.commit()
-                
+               
         except sqlite3.Error as e:
             self.logger.error(f"Database initialization error: {e}")
             raise
@@ -629,3 +640,109 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error clearing all listings: {e}")
             return -1
+
+    def _cleanup_scrape_history(self) -> None:
+        """Clean up scrape history to keep only MAX_SCRAPE_HISTORY_ENTRIES."""
+        try:
+            from config import MAX_SCRAPE_HISTORY_ENTRIES
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Delete oldest entries if we have more than MAX_SCRAPE_HISTORY_ENTRIES
+                cursor.execute('SELECT COUNT(*) FROM scrape_history')
+                count = cursor.fetchone()[0]
+                
+                if count > MAX_SCRAPE_HISTORY_ENTRIES:
+                    # Calculate how many to delete
+                    to_delete = count - MAX_SCRAPE_HISTORY_ENTRIES
+                    
+                    # Delete oldest entries (keep newest)
+                    cursor.execute('''
+                        DELETE FROM scrape_history 
+                        WHERE id IN (
+                            SELECT id FROM scrape_history 
+                            ORDER BY timestamp ASC 
+                            LIMIT ?
+                        )
+                    ''', (to_delete,))
+                    
+                    self.logger.info(f"Cleaned up scrape history: deleted {to_delete} oldest entries")
+                    
+                conn.commit()
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error cleaning up scrape history: {e}")
+
+    def log_scrape_run(self, source: str, listings_count: int, duration_seconds: float) -> None:
+        """Log a scrape run to the scrape history."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Insert new scrape record
+                cursor.execute('''
+                    INSERT INTO scrape_history (timestamp, source, listings_count, duration_seconds)
+                    VALUES (?, ?, ?, ?)
+                ''', (datetime.now().isoformat(), source, listings_count, duration_seconds))
+                
+                conn.commit()
+                
+                # Clean up old entries
+                self._cleanup_scrape_history()
+                
+                self.logger.info(f"Logged scrape run: {source} - {listings_count} listings in {duration_seconds:.1f}s")
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error logging scrape run: {e}")
+
+    def get_last_scrape_time(self) -> Optional[datetime]:
+        """Get the timestamp of the last scrape run."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT timestamp FROM scrape_history 
+                    ORDER BY timestamp DESC 
+                    LIMIT 1
+                ''')
+                
+                row = cursor.fetchone()
+                if row:
+                    return datetime.fromisoformat(row[0])
+                return None
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting last scrape time: {e}")
+            return None
+
+    def get_scrape_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get recent scrape history."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT timestamp, source, listings_count, duration_seconds 
+                    FROM scrape_history 
+                    ORDER BY timestamp DESC 
+                    LIMIT ?
+                ''', (limit,))
+                
+                rows = cursor.fetchall()
+                
+                history = []
+                for row in rows:
+                    history.append({
+                        'timestamp': row[0],
+                        'source': row[1],
+                        'listings_count': row[2],
+                        'duration_seconds': row[3]
+                    })
+                
+                return history
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting scrape history: {e}")
+            return []

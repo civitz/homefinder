@@ -5,11 +5,12 @@ import time
 import threading
 import logging
 from typing import List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from scraper import TettorossoScraper, GalileoScraper
 from database import DatabaseManager
 from models import Listing
+from config import MIN_SCRAPE_INTERVAL_SECONDS
 
 # Global instance for manual triggering
 background_scraper_instance = None
@@ -18,16 +19,14 @@ background_scraper_instance = None
 class BackgroundScraper:
     """Background service for periodic scraping of real estate websites."""
     
-    def __init__(self, interval_hours: int = 1, request_delay_ms: Optional[int] = None, stop_signal: Any = None):
+    def __init__(self, request_delay_ms: Optional[int] = None, stop_signal: Any = None):
         """Initialize the background scraper.
         
         Args:
-            interval_hours: How often to run the scraping (in hours)
             request_delay_ms: Delay between HTTP requests in milliseconds
             stop_signal: AtomicBool for graceful shutdown
         """
-        self.interval_hours = interval_hours
-        self.interval_seconds = interval_hours * 3600
+        self.interval_seconds = MIN_SCRAPE_INTERVAL_SECONDS
         self.logger = logging.getLogger(__name__)
         self.running = False
         self.thread = None
@@ -40,20 +39,58 @@ class BackgroundScraper:
         ]
         self.db_manager = DatabaseManager()
     
-    def _scrape_all_websites(self) -> int:
+    def should_run_scrape(self, force: bool = False) -> bool:
+        """Check if scraping should run based on last scrape time.
+        
+        Args:
+            force: If True, always return True (bypass timestamp check)
+        
+        Returns:
+            True if scraping should run, False if too recent
+        """
+        if force:
+            return True
+            
+        last_scrape_time = self.db_manager.get_last_scrape_time()
+        
+        if last_scrape_time is None:
+            # No previous scrape, should run
+            self.logger.info("No previous scrape found, will run scraping")
+            return True
+            
+        time_since_last_scrape = datetime.now() - last_scrape_time
+        
+        if time_since_last_scrape.total_seconds() >= self.interval_seconds:
+            self.logger.info(f"Last scrape was {time_since_last_scrape.total_seconds():.1f} seconds ago, will run scraping")
+            return True
+        else:
+            remaining_seconds = self.interval_seconds - time_since_last_scrape.total_seconds()
+            self.logger.info(f"Last scrape was {time_since_last_scrape.total_seconds():.1f} seconds ago, skipping (next in {remaining_seconds:.1f}s)")
+            return False
+
+    def _scrape_all_websites(self, force: bool = False) -> int:
         """Scrape all websites and save listings to database.
         
+        Args:
+            force: If True, bypass timestamp check
+            
         Returns:
             Number of listings successfully scraped and saved
         """
         total_listings = 0
-        
+         
+        # Check if we should run based on timestamp
+        if not self.should_run_scrape(force):
+            self.logger.info("Skipping scraping run - too recent")
+            return 0
+            
         # Check poison pill before starting
         if self.stop_signal and self.stop_signal.load():
             self.logger.info("Skipping scraping run due to poison pill")
             return 0
-            
-        self.logger.info(f"Starting scraping run at {datetime.now()}")
+             
+        scrape_start_time = datetime.now()
+        self.logger.info(f"Starting scraping run at {scrape_start_time}")
         
         # Use threading to scrape websites in parallel
         import threading
@@ -92,15 +129,28 @@ class BackgroundScraper:
         
         # Sum up results
         total_listings = sum(results.values())
-        self.logger.info(f"Scraping run completed. Total listings: {total_listings}")
+        
+        scrape_end_time = datetime.now()
+        duration_seconds = (scrape_end_time - scrape_start_time).total_seconds()
+        
+        # Log this scrape run to history
+        self.db_manager.log_scrape_run("background", total_listings, duration_seconds)
+        
+        self.logger.info(f"Scraping run completed. Total listings: {total_listings} in {duration_seconds:.1f} seconds")
         return total_listings
     
     def _scrape_loop(self):
         """Main scraping loop that runs periodically."""
         while self.running:
             try:
+                # Check if we should run scraping based on timestamp
+                if not self.should_run_scrape():
+                    # Sleep for a short time and check again
+                    time.sleep(60)
+                    continue
+                    
                 start_time = time.time()
-                
+                 
                 # Run scraping
                 self._scrape_all_websites()
                 
@@ -108,8 +158,8 @@ class BackgroundScraper:
                 elapsed_time = time.time() - start_time
                 sleep_time = max(0, self.interval_seconds - elapsed_time)
                 
-                self.logger.info(f"Next scraping run in {sleep_time:.1f} seconds ({self.interval_hours} hours)")
-                
+                self.logger.info(f"Next scraping run in {sleep_time:.1f} seconds")
+
                  # Sleep until next run
                 for _ in range(int(sleep_time)):
                     if not self.running:
@@ -132,7 +182,7 @@ class BackgroundScraper:
             return
             
         self.running = True
-        self.logger.info(f"Starting background scraper with {self.interval_hours} hour interval")
+        self.logger.info(f"Starting background scraper with {self.interval_seconds} second interval")
         
         # Start the scraping thread
         self.thread = threading.Thread(target=self._scrape_loop, daemon=True)
@@ -158,13 +208,16 @@ class BackgroundScraper:
         """Check if the background scraper is running."""
         return self.running
     
-    def run_once(self) -> int:
+    def run_once(self, force: bool = False) -> int:
         """Run a single scraping cycle without starting the background service.
         
+        Args:
+            force: If True, bypass timestamp check
+            
         Returns:
             Number of listings successfully scraped and saved
         """
-        return self._scrape_all_websites()
+        return self._scrape_all_websites(force=force)
 
 
 def get_background_scraper() -> Optional['BackgroundScraper']:

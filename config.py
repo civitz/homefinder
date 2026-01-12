@@ -18,6 +18,10 @@ REQUEST_DELAY_MS: Final[int] = 500  # Delay between requests in milliseconds
 # Debug configuration
 DEBUG: Final[bool] = os.getenv("DEBUG", "false").lower() == "true"
 
+# Scraping interval configuration (in seconds)
+MIN_SCRAPE_INTERVAL_SECONDS: Final[int] = int(os.getenv("MIN_SCRAPE_INTERVAL_SECONDS", "3600"))  # Default: 1 hour
+MAX_SCRAPE_HISTORY_ENTRIES: Final[int] = int(os.getenv("MAX_SCRAPE_HISTORY_ENTRIES", "100"))
+
 # Flask configuration
 FLASK_SECRET_KEY: Final[str] = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
 FLASK_DEBUG: Final[bool] = os.getenv("FLASK_DEBUG", str(DEBUG)).lower() == "true"

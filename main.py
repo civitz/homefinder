@@ -52,15 +52,13 @@ def main(args=None):
             GalileoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next)
         ]
         
-        # Initialize background scraper
+         # Initialize background scraper
         if args.no_background:
             logger.info("Background scraping disabled")
             background_scraper = None
         else:
             background_scraper = BackgroundScraper(
-                interval_hours=args.scrape_interval,
-                request_delay_ms=request_delay_ms,
-                stop_signal=stop_at_next
+                request_delay_ms=request_delay_ms
             )
             # Set global instance for manual triggering
             from background_scraper import set_background_scraper
@@ -104,15 +102,30 @@ def main(args=None):
             # Run initial live scraping if not using examples
             if not background_scraper:
                 logger.info("Running single live scraping pass...")
-                # Run a single scraping pass
-                for scraper in scrapers:
-                    try:
-                        listings = scraper.scrape_live_listings()
-                        if listings:
-                            saved_count = db_manager.save_listings(listings)
-                            logger.info(f"Successfully scraped and saved {saved_count} listings from {scraper.name}")
-                    except Exception as e:
-                        logger.error(f"Error in initial scraping for {scraper.name}: {e}")
+                # Check if we should run scraping based on last scrape time
+                last_scrape_time = db_manager.get_last_scrape_time()
+                from config import MIN_SCRAPE_INTERVAL_SECONDS
+                from datetime import datetime
+                
+                should_scrape = True
+                if last_scrape_time:
+                    time_since_last = (datetime.now() - last_scrape_time).total_seconds()
+                    if time_since_last < MIN_SCRAPE_INTERVAL_SECONDS:
+                        should_scrape = False
+                        logger.info(f"Skipping initial scrape - last scrape was {time_since_last:.1f}s ago (interval: {MIN_SCRAPE_INTERVAL_SECONDS}s)")
+                
+                if should_scrape:
+                    # Run a single scraping pass
+                    for scraper in scrapers:
+                        try:
+                            listings = scraper.scrape_live_listings()
+                            if listings:
+                                saved_count = db_manager.save_listings(listings)
+                                logger.info(f"Successfully scraped and saved {saved_count} listings from {scraper.name}")
+                        except Exception as e:
+                            logger.error(f"Error in initial scraping for {scraper.name}: {e}")
+                else:
+                    logger.info("Skipping initial scraping - recent scrape already exists")
         
         # Start Flask application first (non-blocking in debug mode)
         logger.info("Starting Flask web server...")
