@@ -5,11 +5,10 @@ import time
 import threading
 import logging
 from typing import List, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from scraper import TettorossoScraper, GalileoScraper
+from scraper import BaseScraper, TettorossoScraper, GalileoScraper
 from database import DatabaseManager
-from models import Listing
 from config import MIN_SCRAPE_INTERVAL_SECONDS
 
 # Global instance for manual triggering
@@ -19,12 +18,13 @@ background_scraper_instance = None
 class BackgroundScraper:
     """Background service for periodic scraping of real estate websites."""
     
-    def __init__(self, request_delay_ms: Optional[int] = None, stop_signal: Any = None):
+    def __init__(self, request_delay_ms: Optional[int] = None, stop_signal: Any = None, scrapers: Optional[List[BaseScraper]] = None):
         """Initialize the background scraper.
         
         Args:
             request_delay_ms: Delay between HTTP requests in milliseconds
             stop_signal: AtomicBool for graceful shutdown
+            scrapers: List of BaseScraper instances to use (Dependency Injection)
         """
         self.interval_seconds = MIN_SCRAPE_INTERVAL_SECONDS
         self.logger = logging.getLogger(__name__)
@@ -32,11 +32,15 @@ class BackgroundScraper:
         self.thread = None
         self.stop_signal = stop_signal
         
-        # Initialize scrapers and database
-        self.scrapers = [
-            TettorossoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_signal),
-            GalileoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_signal)
-        ]
+        # Use provided scrapers or create defaults for backward compatibility
+        if scrapers is not None:
+            self.scrapers = scrapers
+        else:
+            # Fallback to old behavior if no scrapers provided
+            self.scrapers = [
+                TettorossoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_signal),
+                GalileoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_signal)
+            ]
         self.db_manager = DatabaseManager()
     
     def should_run_scrape(self, force: bool = False) -> bool:
@@ -70,7 +74,7 @@ class BackgroundScraper:
 
     def _scrape_all_websites(self, force: bool = False) -> int:
         """Scrape all websites and save listings to database.
-        
+
         Args:
             force: If True, bypass timestamp check
             
@@ -78,12 +82,7 @@ class BackgroundScraper:
             Number of listings successfully scraped and saved
         """
         total_listings = 0
-         
-        # Check if we should run based on timestamp
-        if not self.should_run_scrape(force):
-            self.logger.info("Skipping scraping run - too recent")
-            return 0
-            
+        
         # Check poison pill before starting
         if self.stop_signal and self.stop_signal.load():
             self.logger.info("Skipping scraping run due to poison pill")
@@ -150,9 +149,9 @@ class BackgroundScraper:
                     continue
                     
                 start_time = time.time()
-                 
-                # Run scraping
-                self._scrape_all_websites()
+                  
+                # Run scraping (force=False since we already checked the timestamp)
+                self._scrape_all_websites(force=False)
                 
                 # Calculate sleep time to maintain interval
                 elapsed_time = time.time() - start_time
@@ -217,6 +216,11 @@ class BackgroundScraper:
         Returns:
             Number of listings successfully scraped and saved
         """
+        # For run_once, we need to check the timestamp if force=False
+        if not force and not self.should_run_scrape(force):
+            self.logger.info("Skipping scraping run - too recent")
+            return 0
+        
         return self._scrape_all_websites(force=force)
 
 

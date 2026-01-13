@@ -95,18 +95,20 @@ def admin_scrape():
     """Trigger manual scraping."""
     try:
         from background_scraper import get_background_scraper
+        import logging
         
         scraper = get_background_scraper()
         
         if scraper:
             # Run scraping in background
             import threading
+            logger = logging.getLogger(__name__)
             def run_scraping():
                 try:
                  count = scraper.run_once(force=True)
-                 current_app.logger.info(f"Manual scraping completed: {count} listings found")
+                 logger.info(f"Manual scraping completed: {count} listings found")
                 except Exception as e:
-                    current_app.logger.error(f"Manual scraping failed: {e}")
+                    logger.error(f"Manual scraping failed: {e}")
             
             # Start scraping in background thread
             thread = threading.Thread(target=run_scraping, daemon=True)

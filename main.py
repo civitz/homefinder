@@ -58,7 +58,8 @@ def main(args=None):
             background_scraper = None
         else:
             background_scraper = BackgroundScraper(
-                request_delay_ms=request_delay_ms
+                request_delay_ms=request_delay_ms,
+                scrapers=scrapers
             )
             # Set global instance for manual triggering
             from background_scraper import set_background_scraper
