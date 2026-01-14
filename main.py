@@ -102,7 +102,7 @@ def main(args=None):
         
         # Start Flask application first (non-blocking in debug mode)
         logger.info("Starting Flask web server...")
-        create_app().run(host='0.0.0.0', port=5000, debug=True)
+        create_app().run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
         
     except KeyboardInterrupt:
         stop_at_next.store(True)  # Set poison pill for graceful shutdown

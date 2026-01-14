@@ -62,7 +62,6 @@ def configure_logging(app: Flask):
     app.logger.setLevel(logging.DEBUG)
     
     # Log startup information
-    app.logger.info('HomeFinder application starting...')
     app.logger.info(f'Debug mode: {DEBUG}')
 
 
