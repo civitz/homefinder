@@ -676,6 +676,7 @@ class DatabaseManager:
 
     def log_scrape_run(self, source: str, listings_count: int, duration_seconds: float) -> None:
         """Log a scrape run to the scrape history."""
+        print("SOMEBODY IS CALLING LOG SCRAPE")
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()

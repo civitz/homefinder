@@ -67,7 +67,22 @@ class BaseScraper:
             self.logger.error(f"Failed to save HTML to {file_path}: {e}")
             return False
 
+fakes=0
+class FakeScraper(BaseScraper):
+    def __init__(self, request_delay_ms: Optional[int] = None, stop_signal: Any = None):
+        global fakes
+        super().__init__(
+            base_url="http://stocazzo",
+            name=f"fake{fakes}",
+            request_delay_ms=request_delay_ms,
+            stop_signal=stop_signal
+        )
+        fakes=fakes+1
 
+    def scrape_live_listings(self) -> List[Listing]:
+        self.logger.info("Those are fake, bro")
+        return []
+    
 class TettorossoScraper(BaseScraper):
     """Scraper for Tettorosso Immobiliare website."""
     

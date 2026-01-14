@@ -203,21 +203,26 @@ def trigger_scrape():
         scraper = get_background_scraper()
         
         if scraper:
-            # Run scraping in background
-            def run_scraping():
-                try:
-                 count = scraper.run_once(force=True)
-                 logging.info(f"API scraping completed: {count} listings found")
-                except Exception as e:
-                    logging.error(f"API scraping failed: {e}")
+            # Set urgent request flag instead of calling run_once directly
+            # This allows the background scraper to handle it with proper coordination
+            if scraper.urgent_request_pending.load():
+                logging.warning("Ignoring urgent scrape request - one already pending")
+                result = {
+                    "status": "ignored",
+                    "message": "Urgent scrape request already pending",
+                    "params": data
+                }
+                return jsonify({
+                    "success": False,
+                    "data": result
+                })
             
-            # Start scraping in background thread
-            thread = threading.Thread(target=run_scraping, daemon=True)
-            thread.start()
+            scraper.urgent_request_pending.store(True)
+            logging.info("Urgent scrape request set, will be processed by background scraper")
             
             result = {
-                "status": "started",
-                "message": "Scraping launched in background",
+                "status": "queued",
+                "message": "Urgent scrape request queued for processing",
                 "params": data
             }
             

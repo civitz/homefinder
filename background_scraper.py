@@ -7,6 +7,8 @@ import logging
 from typing import List, Optional, Any
 from datetime import datetime
 
+import threading
+
 # Import for scraping coordination
 from atomicx import AtomicBool
 
@@ -15,13 +17,12 @@ from database import DatabaseManager
 from config import MIN_SCRAPE_INTERVAL_SECONDS
 
 # Global instance for manual triggering
-background_scraper_instance = None
-
+background_scraper_instance=None
 
 class BackgroundScraper:
     """Background service for periodic scraping of real estate websites."""
     
-    def __init__(self, request_delay_ms: Optional[int] = None, stop_signal: Any = None, scrapers: Optional[List[BaseScraper]] = None):
+    def __init__(self, request_delay_ms: Optional[int] = None, stop_signal: AtomicBool = None, scrapers: Optional[List[BaseScraper]] = None, database: DatabaseManager = None):
         """Initialize the background scraper.
         
         Args:
@@ -38,6 +39,9 @@ class BackgroundScraper:
         # Scraping coordination flag to prevent concurrent operations
         self.scraping_in_progress = AtomicBool(False)
         
+        # Urgent request flag for manual scraping that bypasses time limits
+        self.urgent_request_pending = AtomicBool(False)
+        
         # Use provided scrapers or create defaults for backward compatibility
         if scrapers is not None:
             self.scrapers = scrapers
@@ -47,7 +51,7 @@ class BackgroundScraper:
                 TettorossoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_signal),
                 GalileoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_signal)
             ]
-        self.db_manager = DatabaseManager()
+        self.db_manager = database
     
     def should_run_scrape(self, force: bool = False) -> bool:
         """Check if scraping should run based on last scrape time.
@@ -83,10 +87,16 @@ class BackgroundScraper:
 
         Args:
             force: If True, bypass timestamp check
-            
+        
         Returns:
             Number of listings successfully scraped and saved
         """
+        # Check if there's an urgent request pending (bypasses all limits)
+        if self.urgent_request_pending.load():
+            force = True
+            self.urgent_request_pending.store(False)  # Consume the urgent request
+            self.logger.info("Processing urgent scrape request")
+        
         # Check if scraping is already in progress
         if self.scraping_in_progress.load():
             self.logger.warning("Scraping already in progress, skipping this run")
@@ -107,7 +117,6 @@ class BackgroundScraper:
             self.logger.info(f"Starting scraping run at {scrape_start_time}")
             
             # Use threading to scrape websites in parallel
-            import threading
             results = {}
             threads = []
             
