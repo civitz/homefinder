@@ -7,6 +7,9 @@ import logging
 from typing import List, Optional, Any
 from datetime import datetime
 
+# Import for scraping coordination
+from atomicx import AtomicBool
+
 from scraper import BaseScraper, TettorossoScraper, GalileoScraper
 from database import DatabaseManager
 from config import MIN_SCRAPE_INTERVAL_SECONDS
@@ -31,6 +34,9 @@ class BackgroundScraper:
         self.running = False
         self.thread = None
         self.stop_signal = stop_signal
+        
+        # Scraping coordination flag to prevent concurrent operations
+        self.scraping_in_progress = AtomicBool(False)
         
         # Use provided scrapers or create defaults for backward compatibility
         if scrapers is not None:
@@ -81,67 +87,86 @@ class BackgroundScraper:
         Returns:
             Number of listings successfully scraped and saved
         """
-        total_listings = 0
+        # Check if scraping is already in progress
+        if self.scraping_in_progress.load():
+            self.logger.warning("Scraping already in progress, skipping this run")
+            return 0
         
         # Check poison pill before starting
         if self.stop_signal and self.stop_signal.load():
             self.logger.info("Skipping scraping run due to poison pill")
             return 0
-             
-        scrape_start_time = datetime.now()
-        self.logger.info(f"Starting scraping run at {scrape_start_time}")
         
-        # Use threading to scrape websites in parallel
-        import threading
-        results = {}
-        threads = []
+        # Set flag to indicate scraping is starting
+        self.scraping_in_progress.store(True)
         
-        def scrape_website(scraper):
-            try:
-                self.logger.info(f"Scraping {scraper.name} website...")
-                
-                # Scrape live listings
-                listings = scraper.scrape_live_listings()
-                
-                if listings:
-                    # Save listings to database
-                    saved_count = self.db_manager.save_listings(listings)
-                    results[scraper.name] = saved_count
-                    self.logger.info(f"Successfully scraped and saved {saved_count} listings from {scraper.name}")
-                else:
-                    self.logger.warning(f"No listings found from {scraper.name}")
-                    results[scraper.name] = 0
+        try:
+            total_listings = 0
+            
+            scrape_start_time = datetime.now()
+            self.logger.info(f"Starting scraping run at {scrape_start_time}")
+            
+            # Use threading to scrape websites in parallel
+            import threading
+            results = {}
+            threads = []
+            
+            def scrape_website(scraper):
+                try:
+                    self.logger.info(f"Scraping {scraper.name} website...")
                     
-            except Exception as e:
-                self.logger.error(f"Error scraping {scraper.name}: {e}")
-                results[scraper.name] = 0
-        
-        # Start threads for each scraper
-        for scraper in self.scrapers:
-            thread = threading.Thread(target=scrape_website, args=(scraper,))
-            threads.append(thread)
-            thread.start()
-        
-        # Wait for all threads to complete
-        for thread in threads:
-            thread.join()
-        
-        # Sum up results
-        total_listings = sum(results.values())
-        
-        scrape_end_time = datetime.now()
-        duration_seconds = (scrape_end_time - scrape_start_time).total_seconds()
-        
-        # Log this scrape run to history
-        self.db_manager.log_scrape_run("background", total_listings, duration_seconds)
-        
-        self.logger.info(f"Scraping run completed. Total listings: {total_listings} in {duration_seconds:.1f} seconds")
-        return total_listings
+                    # Scrape live listings
+                    listings = scraper.scrape_live_listings()
+                    
+                    if listings:
+                        # Save listings to database
+                        saved_count = self.db_manager.save_listings(listings)
+                        results[scraper.name] = saved_count
+                        self.logger.info(f"Successfully scraped and saved {saved_count} listings from {scraper.name}")
+                    else:
+                        self.logger.warning(f"No listings found from {scraper.name}")
+                        results[scraper.name] = 0
+                     
+                except Exception as e:
+                    self.logger.error(f"Error scraping {scraper.name}: {e}")
+                    results[scraper.name] = 0
+            
+            # Start threads for each scraper
+            for scraper in self.scrapers:
+                thread = threading.Thread(target=scrape_website, args=(scraper,))
+                threads.append(thread)
+                thread.start()
+            
+            # Wait for all threads to complete
+            for thread in threads:
+                thread.join()
+            
+            # Sum up results
+            total_listings = sum(results.values())
+            
+            scrape_end_time = datetime.now()
+            duration_seconds = (scrape_end_time - scrape_start_time).total_seconds()
+            
+            # Log this scrape run to history
+            self.db_manager.log_scrape_run("background", total_listings, duration_seconds)
+            
+            self.logger.info(f"Scraping run completed. Total listings: {total_listings} in {duration_seconds:.1f} seconds")
+            return total_listings
+            
+        finally:
+            # Always reset the scraping flag when done (success or failure)
+            self.scraping_in_progress.store(False)
     
     def _scrape_loop(self):
         """Main scraping loop that runs periodically."""
         while self.running:
             try:
+                # Check if scraping is already in progress
+                if self.scraping_in_progress.load():
+                    self.logger.debug("Scraping already in progress, waiting...")
+                    time.sleep(60)
+                    continue
+                
                 # Check if we should run scraping based on timestamp
                 if not self.should_run_scrape():
                     # Sleep for a short time and check again
@@ -149,7 +174,7 @@ class BackgroundScraper:
                     continue
                     
                 start_time = time.time()
-                  
+                   
                 # Run scraping (force=False since we already checked the timestamp)
                 self._scrape_all_websites(force=False)
                 
@@ -216,6 +241,11 @@ class BackgroundScraper:
         Returns:
             Number of listings successfully scraped and saved
         """
+        # Check if scraping is already in progress
+        if self.scraping_in_progress.load():
+            self.logger.warning("Scraping already in progress, skipping manual run")
+            return 0
+        
         # For run_once, we need to check the timestamp if force=False
         if not force and not self.should_run_scrape(force):
             self.logger.info("Skipping scraping run - too recent")

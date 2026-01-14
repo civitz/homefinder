@@ -13,7 +13,7 @@ EXAMPLES_DIR: Final[Path] = BASE_DIR / "examples"
 USER_AGENT: Final[str] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 REQUEST_TIMEOUT: Final[int] = 30
 MAX_RETRIES: Final[int] = 3
-REQUEST_DELAY_MS: Final[int] = 500  # Delay between requests in milliseconds
+REQUEST_DELAY_MS: Final[int] = 2000  # Delay between requests in milliseconds
 
 # Debug configuration
 DEBUG: Final[bool] = os.getenv("DEBUG", "false").lower() == "true"
