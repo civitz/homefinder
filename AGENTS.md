@@ -121,6 +121,7 @@ python -m pytest tests/
 
 This will run all scraper tests that validate the parsing functionality against the example HTML files and their corresponding YAML expectations.
 
+Ensure to run the the test before and after every new feature.
 
 ### Running the Application
 
