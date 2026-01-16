@@ -2,16 +2,30 @@
 
 ## What the Project Is
 
-HomeFinder is a web scraping and property finding tool.
-It scrapes from various websites, initially designed for the Tettorosso Immobiliare real estate website. It downloads property listings, extracts structured data, and provides a searchable interface for finding real estate properties in the Padova area.
+- Web scraping and property finding tool
+- Scrapes from various real estate websites
+- Initially designed for Tettorosso Immobiliare website
+- Downloads property listings and extracts structured data
+- Provides searchable interface for Padova area real estate properties
 
 ## How the Project Works
 
-The project follows a three-step process:
+Three-step process:
 
-1. **Scrape**: Periodically downloads and scrapers the listing websites pages to extract structured property data using BeautifulSoup
-2. **Store**: Store data in a well structured database in sqlite
-3. **Analyze**: Provides a web interface to search and browse the extracted property data
+1. **Scrape**: 
+   - Periodically downloads listing website pages
+   - Extracts structured property data using BeautifulSoup
+   - Handles multiple real estate websites
+
+2. **Store**:
+   - Stores data in structured SQLite database
+   - Maintains comprehensive property information
+   - Supports efficient querying and retrieval
+
+3. **Analyze**:
+   - Provides web interface for searching properties
+   - Enables browsing and filtering of extracted data
+   - Offers statistics and analytics features
 
 ## Libraries Used
 
@@ -29,18 +43,18 @@ The project follows a three-step process:
 
 ### Tettorosso immobiliare
 
-Main website: https://www.tettorossoimmobiliare.it/
-Listing page: https://www.tettorossoimmobiliare.it/immobili/
-Type of listings: rent and sell
-Type of page: continuously scrolling page, there is a "CARICA ALTRI IMMOBILI" button if other properties are available
+- Main website: https://www.tettorossoimmobiliare.it/
+- Listing page: https://www.tettorossoimmobiliare.it/immobili/
+- Type of listings: rent and sell
+- Type of page: continuously scrolling page, there is a "CARICA ALTRI IMMOBILI" button if other properties are available
 
 ### Galileo immobiliare
 
-Main website: https://www.galileoimmobiliare.it/
-Listing page:
-- For rent: https://www.galileoimmobiliare.it/affitto/
-- For sell: https://www.galileoimmobiliare.it/immobile/
-Type of page: paginated results, pages are like this: https://www.galileoimmobiliare.it/immobile/page/<page number starting from 1>/ If page is not available, we get an HTTP 404
+- Main website: https://www.galileoimmobiliare.it/
+- Listing pages:
+  - For rent: https://www.galileoimmobiliare.it/affitto/
+  - For sell: https://www.galileoimmobiliare.it/immobile/
+- Type of page: paginated results, pages are like this: https://www.galileoimmobiliare.it/immobile/page/<page number starting from 1>/ If page is not available, we get an HTTP 404
 
 ## File Structure and Key Functions
 
@@ -72,11 +86,15 @@ Type of page: paginated results, pages are like this: https://www.galileoimmobil
 
 #### `examples/` directory
 
-One directory per website, with 2 files per example:
-- `examples/<websitename>/page1.html` with the content of the page
-- `examples/<websitename>/page1.yaml` with the expected metadata of the page in YAML format
+- One directory per website
+- Two files per example:
+  - `examples/<websitename>/page1.html` with the content of the page
+  - `examples/<websitename>/page1.yaml` with the expected metadata of the page in YAML format
 
-Use examples to produce the correct scraper for each site. The YAML files serve as both test data and documentation, and are used by the automated test suite to validate scraper functionality.
+Purpose:
+- Produce correct scraper for each site
+- YAML files serve as test data and documentation
+- Used by automated test suite
 
 ### Web Interface Files
 
@@ -107,9 +125,9 @@ Use examples to produce the correct scraper for each site. The YAML files serve 
 
 ### Prerequisites
 
-1. use UV and virtualenv for package management
-2. Python 3.8+
-3. Required packages: `uv pip install -r requirements.txt`
+1. Use UV and virtualenv for package management
+2. Python 3.8 or higher
+3. Install required packages: `uv pip install -r requirements.txt`
 
 ### Running Tests
 
@@ -119,24 +137,21 @@ source .venv/bin/activate
 python -m pytest tests/
 ```
 
-This will run all scraper tests that validate the parsing functionality against the example HTML files and their corresponding YAML expectations.
+This validates scraper functionality against example HTML files and YAML expectations.
 
-Ensure to run the the test before and after every new feature.
+Run tests before and after every new feature.
 
 ### Running the Application
 
-Enable virtualenv via:
+Enable virtualenv and run the application:
 ```bash
 source .venv/bin/activate
-```
-
-```bash
 python main.py
 ```
 This will automatically:
-1. Download the website (if not already downloaded)
-2. Scrape all property data
-3. Start the Flask web server
+- Download the website (if not already downloaded)
+- Scrape all property data
+- Start the Flask web server
 
 ### Access the application
 
@@ -154,7 +169,7 @@ FLASK_ENV=development FLASK_DEBUG=1 python main.py
 This enables:
 - Auto-reloading on code changes
 - Debug mode with detailed error pages
-- Development logging
+- Development logging with verbose output
 
 ## Key Features
 
@@ -164,7 +179,7 @@ This enables:
 - **Search Functionality**: Advanced search by location, price, size, etc.
 - **Data Export**: Ability to export data to JSON/CSV
 
-## Data Model (Casetta)
+## Data Model (Listing)
 
 The main data structure includes:
 - Basic info: title, agency, URL, description
