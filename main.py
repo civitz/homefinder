@@ -48,10 +48,10 @@ def main(args=None):
         request_delay_ms = args.request_delay if args.request_delay is not None else None
         
         scrapers = [
-            #TettorossoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next),
-            #GalileoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next)
-            FakeScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next),
-            FakeScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next)
+            TettorossoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next),
+            GalileoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next)
+            #FakeScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next),
+            #FakeScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next)
         ]
         
          # Initialize background scraper

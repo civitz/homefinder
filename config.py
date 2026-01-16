@@ -13,13 +13,13 @@ EXAMPLES_DIR: Final[Path] = BASE_DIR / "examples"
 USER_AGENT: Final[str] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 REQUEST_TIMEOUT: Final[int] = 30
 MAX_RETRIES: Final[int] = 3
-REQUEST_DELAY_MS: Final[int] = 1000  # Delay between requests in milliseconds
+REQUEST_DELAY_MS: Final[int] = 2000  # Delay between requests in milliseconds
 
 # Debug configuration
 DEBUG: Final[bool] = os.getenv("DEBUG", "false").lower() == "true"
 
 # Scraping interval configuration (in seconds)
-MIN_SCRAPE_INTERVAL_SECONDS: Final[int] = int(os.getenv("MIN_SCRAPE_INTERVAL_SECONDS", "10"))  # Default: 1 hour
+MIN_SCRAPE_INTERVAL_SECONDS: Final[int] = int(os.getenv("MIN_SCRAPE_INTERVAL_SECONDS", "3600"))  # Default: 1 hour
 MAX_SCRAPE_HISTORY_ENTRIES: Final[int] = int(os.getenv("MAX_SCRAPE_HISTORY_ENTRIES", "20"))
 
 # Flask configuration
