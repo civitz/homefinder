@@ -78,10 +78,13 @@ class DatabaseManager:
                          features TEXT,
                          scrape_date TEXT NOT NULL,
                          publication_date TEXT,
-                         raw_html_file TEXT,
-                         agency_listing_id TEXT,
-                         modify_date TEXT,
-                         FOREIGN KEY (agency_id) REFERENCES agencies(id)
+                          raw_html_file TEXT,
+                          agency_listing_id TEXT,
+                          modify_date TEXT,
+                          creation_date TEXT NOT NULL,
+                          last_verified_date TEXT,
+                          is_broken BOOLEAN DEFAULT FALSE,
+                          FOREIGN KEY (agency_id) REFERENCES agencies(id)
                      )
                  ''')
                  
@@ -229,12 +232,16 @@ class DatabaseManager:
                              is_furnished = ?,
                              energy_class = ?,
                              energy_consumption = ?,
-                             features = ?,
-                             scrape_date = ?,
-                             publication_date = ?,
-                             raw_html_file = ?,
-                             agency_listing_id = ?
-                         WHERE url = ?
+                              features = ?,
+                              scrape_date = ?,
+                              publication_date = ?,
+                              raw_html_file = ?,
+                              agency_listing_id = ?,
+                              modify_date = ?,
+                              creation_date = ?,
+                              last_verified_date = ?,
+                              is_broken = ?
+                          WHERE url = ?
                      '''
                      
                      cursor.execute(update_query, (
@@ -262,25 +269,30 @@ class DatabaseManager:
                          str(listing_dict['features']) if listing_dict['features'] else None,
                          listing_dict['scrape_date'],
                          listing_dict['publication_date'],
-                         listing_dict['raw_html_file'],
-                         listing_dict['agency_listing_id'],
-                         listing.url
-                     ))
+                          listing_dict['raw_html_file'],
+                          listing_dict['agency_listing_id'],
+                          listing_dict.get('modify_date'),
+                          listing_dict.get('creation_date'),
+                          listing_dict.get('last_verified_date'),
+                          listing_dict.get('is_broken', False),
+                          listing.url
+                      ))
                      
                      self.logger.info(f"Updated existing listing: {listing.url}")
                 else:
                      # Insert new listing
-                     insert_query = '''
-                         INSERT INTO listings (
-                             title, agency_id, url, description, contract_type, price, city, 
-                             neighborhood, address, rooms, bedrooms, bathrooms, square_meters, 
-                             floor, year_built, has_elevator, heating, has_air_conditioning, 
-                             has_garage, is_furnished, energy_class, energy_consumption, 
-                              features, scrape_date, publication_date, raw_html_file, agency_listing_id
-                          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      insert_query = '''
+                          INSERT INTO listings (
+                              title, agency_id, url, description, contract_type, price, city, 
+                              neighborhood, address, rooms, bedrooms, bathrooms, square_meters, 
+                              floor, year_built, has_elevator, heating, has_air_conditioning, 
+                              has_garage, is_furnished, energy_class, energy_consumption, 
+                               features, scrape_date, publication_date, raw_html_file, agency_listing_id,
+                               modify_date, creation_date, last_verified_date, is_broken
+                           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                      '''
                      
-                     cursor.execute(insert_query, (
+                      cursor.execute(insert_query, (
                          listing_dict['title'],
                          listing_dict['agency_id'],
                          listing_dict['url'],
@@ -306,11 +318,15 @@ class DatabaseManager:
                          str(listing_dict['features']) if listing_dict['features'] else None,
                          listing_dict['scrape_date'],
                          listing_dict['publication_date'],
-                         listing_dict['raw_html_file'],
-                          listing_dict['agency_listing_id']
-                     ))
+                          listing_dict['raw_html_file'],
+                           listing_dict['agency_listing_id'],
+                          listing_dict.get('modify_date'),
+                          listing_dict.get('creation_date'),
+                          listing_dict.get('last_verified_date'),
+                          listing_dict.get('is_broken', False)
+                      ))
                      
-                     self.logger.info(f"Inserted new listing: {listing.url}")
+                      self.logger.info(f"Inserted new listing: {listing.url}")
                  
                 conn.commit()
                  
@@ -510,9 +526,12 @@ class DatabaseManager:
               'scrape_date': row[23],
               'publication_date': row[24],
               'raw_html_file': row[25],
-              'agency_listing_id': row[26],
-              'modify_date': row[27],
-              'agency_id': row[28]
+               'agency_listing_id': row[26],
+               'modify_date': row[27],
+               'creation_date': row[28],
+               'last_verified_date': row[29],
+               'is_broken': row[30],
+               'agency_id': row[31]
           }
         
         # Convert features from string back to list

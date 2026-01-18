@@ -22,6 +22,10 @@ DEBUG: Final[bool] = os.getenv("DEBUG", "false").lower() == "true"
 MIN_SCRAPE_INTERVAL_SECONDS: Final[int] = int(os.getenv("MIN_SCRAPE_INTERVAL_SECONDS", "3600"))  # Default: 1 hour
 MAX_SCRAPE_HISTORY_ENTRIES: Final[int] = int(os.getenv("MAX_SCRAPE_HISTORY_ENTRIES", "20"))
 
+# Broken link cleanup configuration
+BROKEN_LINK_CLEANUP_INTERVAL_HOURS: Final[int] = int(os.getenv("BROKEN_LINK_CLEANUP_INTERVAL_HOURS", "24"))  # Default: 24 hours
+MIN_LISTING_AGE_DAYS: Final[int] = int(os.getenv("MIN_LISTING_AGE_DAYS", "15"))  # Default: 15 days
+
 # Flask configuration
 FLASK_SECRET_KEY: Final[str] = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
 FLASK_DEBUG: Final[bool] = os.getenv("FLASK_DEBUG", str(DEBUG)).lower() == "true"

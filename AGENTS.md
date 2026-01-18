@@ -141,6 +141,9 @@ This validates scraper functionality against example HTML files and YAML expecta
 
 Run tests before and after every new feature.
 
+Every new feature must be supported by new tests.
+In fact: new features should start with a failing test.
+
 ### Running the Application
 
 Enable virtualenv and run the application:

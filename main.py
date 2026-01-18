@@ -19,6 +19,7 @@ from scraper import TettorossoScraper, GalileoScraper, FakeScraper
 from database import DatabaseManager
 from background_scraper import BackgroundScraper
 from background_scraper import set_background_scraper
+from broken_link_cleaner import BrokenLinkCleaner
 from config import MIN_SCRAPE_INTERVAL_SECONDS
 
 # Global poison pill for graceful shutdown
@@ -61,18 +62,31 @@ def main(args=None):
             scrapers=scrapers,
             database=db_manager
         )
-        
+
         # Set global instance for manual triggering (API access)
         set_background_scraper(background_scraper)
-        
+
+        # Initialize broken link cleaner
+        broken_link_cleaner = BrokenLinkCleaner(
+            stop_signal=stop_at_next,
+            database=db_manager
+        )
+
         if args.no_background:
             logger.info("Background scraping disabled (but instance available for API)")
         else:
             # Use a separate thread to start the background scraper
             background_scraper.start()
             logger.info("Background scraping enabled")
-        
-        # Create necessary directories
+
+        if args.no_broken_link_cleanup:
+            logger.info("Broken link cleanup disabled")
+        else:
+            # Start broken link cleaner
+            broken_link_cleaner.start()
+            logger.info("Broken link cleanup enabled")
+
+         # Create necessary directories
         DOWNLOAD_DIR.mkdir(exist_ok=True)
         
         if args.no_background:
@@ -113,11 +127,16 @@ def main(args=None):
         stop_at_next.store(True)
         sys.exit(1)
     finally:
-        # Cleanup on exit
-        # Only stop background scraper if it was actually running
-        if background_scraper and not args.no_background:
-            stop_at_next.store(True)
-            background_scraper.stop()
+         # Cleanup on exit
+         # Only stop background scraper if it was actually running
+         if background_scraper and not args.no_background:
+             stop_at_next.store(True)
+             background_scraper.stop()
+
+         # Only stop broken link cleaner if it was actually running
+         if 'broken_link_cleaner' in locals() and not args.no_broken_link_cleanup:
+             stop_at_next.store(True)
+             broken_link_cleaner.stop()
 
 
 def parse_arguments(argv=None):
@@ -140,11 +159,16 @@ def parse_arguments(argv=None):
         help='Background scraping interval in hours (default: 1)'
     )
     parser.add_argument(
-        '--request-delay',
-        type=int,
-        default=None,
-        help='Delay between HTTP requests in milliseconds (default: from config)'
+         '--request-delay',
+         type=int,
+         default=None,
+         help='Delay between HTTP requests in milliseconds (default: from config)'
     )
+    parser.add_argument(
+         '--no-broken-link-cleanup',
+         action='store_true',
+         help='Disable broken link cleanup service'
+     )
     
     if argv is None:
         return parser.parse_args()

@@ -82,15 +82,18 @@ class Listing:
     # Additional features
     features: Optional[List[str]] = None
     
-    # Database metadata
+     # Database metadata
     id: Optional[int] = None
-    
+
     # Metadata
     scrape_date: datetime = datetime.now()
     publication_date: Optional[datetime] = None
     raw_html_file: Optional[str] = None
     agency_listing_id: Optional[str] = None
     modify_date: Optional[datetime] = None
+    creation_date: datetime = datetime.now()
+    last_verified_date: Optional[datetime] = None
+    is_broken: bool = False
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert listing to dictionary for JSON serialization."""
@@ -123,7 +126,10 @@ class Listing:
             "id": self.id,
             "raw_html_file": self.raw_html_file,
             "agency_listing_id": self.agency_listing_id,
-            "modify_date": self.modify_date.isoformat() if self.modify_date else None
+             "modify_date": self.modify_date.isoformat() if self.modify_date else None,
+            "creation_date": self.creation_date.isoformat(),
+            "last_verified_date": self.last_verified_date.isoformat() if self.last_verified_date else None,
+            "is_broken": self.is_broken
         }
     
     @classmethod
@@ -164,7 +170,10 @@ class Listing:
             id=data.get("id"),
             raw_html_file=data.get("raw_html_file"),
             agency_listing_id=data.get("agency_listing_id"),
-            modify_date=datetime.fromisoformat(data["modify_date"]) if data.get("modify_date") else None
+            modify_date=datetime.fromisoformat(data["modify_date"]) if data.get("modify_date") else None,
+            creation_date=datetime.fromisoformat(data["creation_date"]) if data.get("creation_date") and isinstance(data["creation_date"], str) else datetime.now(),
+            last_verified_date=datetime.fromisoformat(data["last_verified_date"]) if data.get("last_verified_date") and isinstance(data["last_verified_date"], str)  else None,
+            is_broken=data.get("is_broken", False)
         )
 
     def get_agency_name(self, db_manager) -> str:
