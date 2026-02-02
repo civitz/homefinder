@@ -611,39 +611,101 @@ class DatabaseManager:
         try:
             query = 'SELECT * FROM listings WHERE 1=1'
             params = []
-            
+             
             # Add filters based on kwargs
             if 'city' in kwargs and kwargs['city']:
                 query += ' AND city = ?'
                 params.append(kwargs['city'])
-                
+                 
             if 'min_price' in kwargs and kwargs['min_price']:
                 query += ' AND price >= ?'
                 params.append(kwargs['min_price'])
-                
+                 
             if 'max_price' in kwargs and kwargs['max_price']:
                 query += ' AND price <= ?'
                 params.append(kwargs['max_price'])
-                
+                 
             if 'min_size' in kwargs and kwargs['min_size']:
                 query += ' AND square_meters >= ?'
                 params.append(kwargs['min_size'])
-                
+                 
             if 'contract_type' in kwargs and kwargs['contract_type']:
                 query += ' AND contract_type = ?'
                 params.append(kwargs['contract_type'])
-            
+             
             if 'agency_id' in kwargs and kwargs['agency_id']:
                 query += ' AND agency_id = ?'
                 params.append(kwargs['agency_id'])
             
+            # New filters
+            if 'min_bedrooms' in kwargs and kwargs['min_bedrooms']:
+                query += ' AND (bedrooms >= ? OR bedrooms IS NULL)'
+                params.append(kwargs['min_bedrooms'])
+                
+            if 'min_bathrooms' in kwargs and kwargs['min_bathrooms']:
+                query += ' AND (bathrooms >= ? OR bathrooms IS NULL)'
+                params.append(kwargs['min_bathrooms'])
+                
+            if 'neighborhood' in kwargs and kwargs['neighborhood']:
+                query += ' AND (neighborhood LIKE ? OR neighborhood IS NULL)'
+                params.append(f"%{kwargs['neighborhood']}%")
+                
+            if 'min_year_built' in kwargs and kwargs['min_year_built']:
+                query += ' AND (year_built >= ? OR year_built IS NULL)'
+                params.append(kwargs['min_year_built'])
+                
+            if 'has_air_conditioning' in kwargs and kwargs['has_air_conditioning']:
+                query += ' AND (has_air_conditioning = ? OR has_air_conditioning IS NULL)'
+                params.append(True)
+                
+            if 'has_garage' in kwargs and kwargs['has_garage']:
+                query += ' AND (has_garage = ? OR has_garage IS NULL)'
+                params.append(True)
+                
+            if 'min_energy_class' in kwargs and kwargs['min_energy_class']:
+                # Energy class hierarchy: A4=1 (best) to G=11 (worst)
+                energy_class_mapping = {
+                    'A4': 1, 'A3': 2, 'A2': 3, 'A1': 4, 'A': 5, 
+                    'B': 6, 'C': 7, 'D': 8, 'E': 9, 'F': 10, 'G': 11
+                }
+                target_value = energy_class_mapping.get(kwargs['min_energy_class'].upper(), 11)
+                
+                query += '''
+                    AND (
+                        energy_class IS NULL
+                        OR CASE
+                            WHEN energy_class = 'A4' THEN 1
+                            WHEN energy_class = 'A3' THEN 2
+                            WHEN energy_class = 'A2' THEN 3
+                            WHEN energy_class = 'A1' THEN 4
+                            WHEN energy_class = 'A' THEN 5
+                            WHEN energy_class = 'B' THEN 6
+                            WHEN energy_class = 'C' THEN 7
+                            WHEN energy_class = 'D' THEN 8
+                            WHEN energy_class = 'E' THEN 9
+                            WHEN energy_class = 'F' THEN 10
+                            WHEN energy_class = 'G' THEN 11
+                            ELSE 12
+                        END <= ?
+                    )
+                '''
+                params.append(target_value)
+                
+            if 'heating' in kwargs and kwargs['heating']:
+                query += ' AND (heating = ? OR heating IS NULL)'
+                params.append(kwargs['heating'])
+                
+            if 'min_rooms' in kwargs and kwargs['min_rooms']:
+                query += ' AND (rooms >= ? OR rooms IS NULL)'
+                params.append(kwargs['min_rooms'])
+             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 rows = cursor.fetchall()
-                
+                 
                 return [self._row_to_listing(row) for row in rows]
-                
+                 
         except sqlite3.Error as e:
             self.logger.error(f"Error searching listings: {e}")
             return []

@@ -18,11 +18,22 @@ def search_properties():
     contract_type = request.args.get('contract_type')
     agency_id = request.args.get('agency_id', type=int)
     
+    # New filter parameters
+    min_bedrooms = request.args.get('min_bedrooms', type=int)
+    min_bathrooms = request.args.get('min_bathrooms', type=int)
+    neighborhood = request.args.get('neighborhood')
+    min_year_built = request.args.get('min_year_built', type=int)
+    has_air_conditioning = request.args.get('has_air_conditioning') == 'on'
+    has_garage = request.args.get('has_garage') == 'on'
+    min_energy_class = request.args.get('min_energy_class')
+    heating = request.args.get('heating')
+    min_rooms = request.args.get('min_rooms', type=int)
+     
     # Implement actual search logic with database
     try:
         from database import DatabaseManager
         db_manager = DatabaseManager()
-        
+         
         # Build search criteria
         search_criteria = {}
         if city:
@@ -37,10 +48,28 @@ def search_properties():
             search_criteria['contract_type'] = contract_type
         if agency_id:
             search_criteria['agency_id'] = agency_id
-        
+        if min_bedrooms:
+            search_criteria['min_bedrooms'] = min_bedrooms
+        if min_bathrooms:
+            search_criteria['min_bathrooms'] = min_bathrooms
+        if neighborhood:
+            search_criteria['neighborhood'] = neighborhood
+        if min_year_built:
+            search_criteria['min_year_built'] = min_year_built
+        if has_air_conditioning:
+            search_criteria['has_air_conditioning'] = has_air_conditioning
+        if has_garage:
+            search_criteria['has_garage'] = has_garage
+        if min_energy_class:
+            search_criteria['min_energy_class'] = min_energy_class
+        if heating:
+            search_criteria['heating'] = heating
+        if min_rooms:
+            search_criteria['min_rooms'] = min_rooms
+         
         # Search database
         properties = db_manager.search_listings(**search_criteria)
-        
+         
         # Convert to simpler format for template
         properties_data = []
         for prop in properties:
@@ -61,10 +90,10 @@ def search_properties():
                 'year_built': prop.year_built,
                 'floor': prop.floor
             })
-        
+         
         # Get all agencies for dropdown
         agencies = db_manager.get_all_agencies()
-        
+         
         return render_template('search.html', 
                              properties=properties_data, 
                              search_params={
@@ -73,10 +102,19 @@ def search_properties():
                                  'max_price': max_price,
                                  'min_size': min_size,
                                  'contract_type': contract_type,
-                                 'agency_id': agency_id
+                                 'agency_id': agency_id,
+                                 'min_bedrooms': min_bedrooms,
+                                 'min_bathrooms': min_bathrooms,
+                                 'neighborhood': neighborhood,
+                                 'min_year_built': min_year_built,
+                                 'has_air_conditioning': has_air_conditioning,
+                                 'has_garage': has_garage,
+                                 'min_energy_class': min_energy_class,
+                                 'heating': heating,
+                                 'min_rooms': min_rooms
                              },
                              agencies=agencies)
-    
+     
     except Exception as e:
         current_app.logger.error(f"Error in property search: {e}")
         return render_template('search.html', 
@@ -87,7 +125,16 @@ def search_properties():
                                  'max_price': max_price,
                                  'min_size': min_size,
                                  'contract_type': contract_type,
-                                 'agency_id': agency_id
+                                 'agency_id': agency_id,
+                                 'min_bedrooms': min_bedrooms,
+                                 'min_bathrooms': min_bathrooms,
+                                 'neighborhood': neighborhood,
+                                 'min_year_built': min_year_built,
+                                 'has_air_conditioning': has_air_conditioning,
+                                 'has_garage': has_garage,
+                                 'min_energy_class': min_energy_class,
+                                 'heating': heating,
+                                 'min_rooms': min_rooms
                              },
                              agencies=[])
 
@@ -271,14 +318,34 @@ def api_search():
             search_criteria['max_price'] = float(params['max_price'])
         if 'min_size' in params:
             search_criteria['min_size'] = int(params['min_size'])
-            if 'contract_type' in params:
-                search_criteria['contract_type'] = params['contract_type']
+        if 'contract_type' in params:
+            search_criteria['contract_type'] = params['contract_type']
             
-            if 'agency_id' in params:
-                search_criteria['agency_id'] = int(params['agency_id'])
+        if 'agency_id' in params:
+            search_criteria['agency_id'] = int(params['agency_id'])
+        
+        # New filter parameters
+        if 'min_bedrooms' in params:
+            search_criteria['min_bedrooms'] = int(params['min_bedrooms'])
+        if 'min_bathrooms' in params:
+            search_criteria['min_bathrooms'] = int(params['min_bathrooms'])
+        if 'neighborhood' in params and params['neighborhood']:
+            search_criteria['neighborhood'] = params['neighborhood']
+        if 'min_year_built' in params:
+            search_criteria['min_year_built'] = int(params['min_year_built'])
+        if 'has_air_conditioning' in params:
+            search_criteria['has_air_conditioning'] = params['has_air_conditioning'] == 'true'
+        if 'has_garage' in params:
+            search_criteria['has_garage'] = params['has_garage'] == 'true'
+        if 'min_energy_class' in params and params['min_energy_class']:
+            search_criteria['min_energy_class'] = params['min_energy_class']
+        if 'heating' in params and params['heating']:
+            search_criteria['heating'] = params['heating']
+        if 'min_rooms' in params:
+            search_criteria['min_rooms'] = int(params['min_rooms'])
             
-            # Search database
-            results = db_manager.search_listings(**search_criteria)
+        # Search database
+        results = db_manager.search_listings(**search_criteria)
         
         # Convert to JSON-friendly format
         results_data = []
