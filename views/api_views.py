@@ -63,22 +63,60 @@ def get_property(property_id: int):
         property_data = db_manager.get_listing_by_id(property_id)
         
         if property_data:
+            # Check if full data is requested
+            full_mode = request.args.get('full', 'false').lower() == 'true'
+            
             # Convert to JSON-friendly format
-            property_dict = {
-                "id": property_id,
-                "title": property_data.title,
-                "price": property_data.price,
-                "city": property_data.city,
-                "neighborhood": property_data.neighborhood,
-                "bedrooms": property_data.bedrooms,
-                "bathrooms": property_data.bathrooms,
-                "square_meters": property_data.square_meters,
-                "contract_type": property_data.contract_type.value,
-                "agency_id": property_data.agency_id,
-                "url": property_data.url,
-                "agency_listing_id": property_data.agency_listing_id,
-                "description": property_data.description
-            }
+            if full_mode:
+                # Return comprehensive data (all fields except raw_html_file)
+                property_dict = {
+                    "id": property_id,
+                    "title": property_data.title,
+                    "price": property_data.price,
+                    "city": property_data.city,
+                    "neighborhood": property_data.neighborhood,
+                    "bedrooms": property_data.bedrooms,
+                    "bathrooms": property_data.bathrooms,
+                    "square_meters": property_data.square_meters,
+                    "contract_type": property_data.contract_type.value,
+                    "agency_id": property_data.agency_id,
+                    "url": property_data.url,
+                    "agency_listing_id": property_data.agency_listing_id,
+                    "description": property_data.description,
+                    "address": property_data.address,
+                    "rooms": property_data.rooms,
+                    "year_built": property_data.year_built,
+                    "floor": property_data.floor,
+                    "has_elevator": property_data.has_elevator,
+                    "heating": property_data.heating.value if property_data.heating else None,
+                    "has_air_conditioning": property_data.has_air_conditioning,
+                    "has_garage": property_data.has_garage,
+                    "is_furnished": property_data.is_furnished,
+                    "energy_class": property_data.energy_class,
+                    "energy_consumption": property_data.energy_consumption,
+                    "features": property_data.features,
+                    "scrape_date": property_data.scrape_date.isoformat() if property_data.scrape_date else None,
+                    "publication_date": property_data.publication_date.isoformat() if property_data.publication_date else None,
+                    "modify_date": property_data.modify_date.isoformat() if property_data.modify_date else None,
+                    "agency": db_manager.get_agency_by_id(property_data.agency_id).name if db_manager.get_agency_by_id(property_data.agency_id) else 'Unknown Agency'
+                }
+            else:
+                # Return limited data (backward compatible)
+                property_dict = {
+                    "id": property_id,
+                    "title": property_data.title,
+                    "price": property_data.price,
+                    "city": property_data.city,
+                    "neighborhood": property_data.neighborhood,
+                    "bedrooms": property_data.bedrooms,
+                    "bathrooms": property_data.bathrooms,
+                    "square_meters": property_data.square_meters,
+                    "contract_type": property_data.contract_type.value,
+                    "agency_id": property_data.agency_id,
+                    "url": property_data.url,
+                    "agency_listing_id": property_data.agency_listing_id,
+                    "description": property_data.description
+                }
             
             return jsonify({
                 "success": True,
