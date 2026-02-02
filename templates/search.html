@@ -14,7 +14,8 @@
         <div class="card">
             <div class="card-body">
                  <form method="get" action="/properties">
-                     <div class="row g-3">
+                     <div class="row g-2">
+                         <!-- Basic Filters -->
                          <div class="col-md-3">
                              <label for="city" class="form-label">City</label>
                              <input type="text" class="form-control" id="city" name="city" 
@@ -64,71 +65,63 @@
                              </select>
                          </div>
                          
-                         <div class="col-md-1 d-flex align-items-end">
-                             <button type="submit" class="btn btn-primary w-100">Search</button>
-                         </div>
-                     </div>
-                     
-                     <!-- Additional Filters Row -->
-                     <div class="row g-3 mt-2">
+                         <!-- Additional Filters - All in same row -->
                          <div class="col-md-2">
-                             <label for="min_bedrooms" class="form-label">Min Bedrooms</label>
+                             <label for="min_bedrooms" class="form-label">Bedrooms</label>
                              <input type="number" class="form-control" id="min_bedrooms" name="min_bedrooms" 
                                     value="{{ search_params.min_bedrooms if search_params.min_bedrooms else '' }}" 
-                                    placeholder="e.g., 2">
+                                    placeholder="2+">
                          </div>
                          
                          <div class="col-md-2">
-                             <label for="min_bathrooms" class="form-label">Min Bathrooms</label>
+                             <label for="min_bathrooms" class="form-label">Bathrooms</label>
                              <input type="number" class="form-control" id="min_bathrooms" name="min_bathrooms" 
                                     value="{{ search_params.min_bathrooms if search_params.min_bathrooms else '' }}" 
-                                    placeholder="e.g., 1">
+                                    placeholder="1+">
                          </div>
                          
                          <div class="col-md-2">
                              <label for="neighborhood" class="form-label">Neighborhood</label>
                              <input type="text" class="form-control" id="neighborhood" name="neighborhood" 
                                     value="{{ search_params.neighborhood if search_params.neighborhood else '' }}" 
-                                    placeholder="e.g., Centro">
+                                    placeholder="Centro">
                          </div>
                          
                          <div class="col-md-2">
-                             <label for="min_year_built" class="form-label">Built After Year</label>
+                             <label for="min_year_built" class="form-label">Built After</label>
                              <input type="number" class="form-control" id="min_year_built" name="min_year_built" 
                                     value="{{ search_params.min_year_built if search_params.min_year_built else '' }}" 
-                                    placeholder="e.g., 2000">
+                                    placeholder="2000">
                          </div>
                          
                          <div class="col-md-2">
-                             <label for="min_rooms" class="form-label">Min Rooms</label>
+                             <label for="min_rooms" class="form-label">Rooms</label>
                              <input type="number" class="form-control" id="min_rooms" name="min_rooms" 
                                     value="{{ search_params.min_rooms if search_params.min_rooms else '' }}" 
-                                    placeholder="e.g., 3">
+                                    placeholder="3+">
                          </div>
                          
                          <div class="col-md-2">
-                             <label for="min_energy_class" class="form-label">Min Energy Class</label>
+                             <label for="min_energy_class" class="form-label">Energy Class</label>
                              <select class="form-select" id="min_energy_class" name="min_energy_class">
                                  <option value="">Any</option>
-                                 <option value="A4" {% if search_params.min_energy_class == 'A4' %}selected{% endif %}>A4 (Best)</option>
-                                 <option value="A3" {% if search_params.min_energy_class == 'A3' %}selected{% endif %}>A3</option>
-                                 <option value="A2" {% if search_params.min_energy_class == 'A2' %}selected{% endif %}>A2</option>
-                                 <option value="A1" {% if search_params.min_energy_class == 'A1' %}selected{% endif %}>A1</option>
-                                 <option value="A" {% if search_params.min_energy_class == 'A' %}selected{% endif %}>A</option>
-                                 <option value="B" {% if search_params.min_energy_class == 'B' %}selected{% endif %}>B</option>
-                                 <option value="C" {% if search_params.min_energy_class == 'C' %}selected{% endif %}>C</option>
-                                 <option value="D" {% if search_params.min_energy_class == 'D' %}selected{% endif %}>D</option>
-                                 <option value="E" {% if search_params.min_energy_class == 'E' %}selected{% endif %}>E</option>
-                                 <option value="F" {% if search_params.min_energy_class == 'F' %}selected{% endif %}>F</option>
-                                 <option value="G" {% if search_params.min_energy_class == 'G' %}selected{% endif %}>G (Worst)</option>
+                                 <option value="A4" {% if search_params.min_energy_class == 'A4' %}selected{% endif %}>A4+</option>
+                                 <option value="A3" {% if search_params.min_energy_class == 'A3' %}selected{% endif %}>A3+</option>
+                                 <option value="A2" {% if search_params.min_energy_class == 'A2' %}selected{% endif %}>A2+</option>
+                                 <option value="A1" {% if search_params.min_energy_class == 'A1' %}selected{% endif %}>A1+</option>
+                                 <option value="A" {% if search_params.min_energy_class == 'A' %}selected{% endif %}>A+</option>
+                                 <option value="B" {% if search_params.min_energy_class == 'B' %}selected{% endif %}>B+</option>
+                                 <option value="C" {% if search_params.min_energy_class == 'C' %}selected{% endif %}>C+</option>
+                                 <option value="D" {% if search_params.min_energy_class == 'D' %}selected{% endif %}>D+</option>
+                                 <option value="E" {% if search_params.min_energy_class == 'E' %}selected{% endif %}>E+</option>
+                                 <option value="F" {% if search_params.min_energy_class == 'F' %}selected{% endif %}>F+</option>
+                                 <option value="G" {% if search_params.min_energy_class == 'G' %}selected{% endif %}>G</option>
                              </select>
                          </div>
-                     </div>
-                     
-                     <!-- Checkbox Filters Row -->
-                     <div class="row g-3 mt-2">
+                         
+                         <!-- Checkbox Filters - All in same row -->
                          <div class="col-md-2">
-                             <div class="form-check">
+                             <div class="form-check mt-4">
                                  <input class="form-check-input" type="checkbox" id="has_air_conditioning" name="has_air_conditioning" 
                                         {% if search_params.has_air_conditioning %}checked{% endif %}>
                                  <label class="form-check-label" for="has_air_conditioning">
@@ -138,7 +131,7 @@
                          </div>
                          
                          <div class="col-md-2">
-                             <div class="form-check">
+                             <div class="form-check mt-4">
                                  <input class="form-check-input" type="checkbox" id="has_garage" name="has_garage" 
                                         {% if search_params.has_garage %}checked{% endif %}>
                                  <label class="form-check-label" for="has_garage">
@@ -148,13 +141,25 @@
                          </div>
                          
                          <div class="col-md-2">
-                             <label for="heating" class="form-label">Heating Type</label>
+                             <label for="heating" class="form-label">Heating</label>
                              <select class="form-select" id="heating" name="heating">
                                  <option value="">Any</option>
                                  <option value="autonomous" {% if search_params.heating == 'autonomous' %}selected{% endif %}>Autonomous</option>
                                  <option value="centralized" {% if search_params.heating == 'centralized' %}selected{% endif %}>Centralized</option>
                                  <option value="unknown" {% if search_params.heating == 'unknown' %}selected{% endif %}>Unknown</option>
                              </select>
+                         </div>
+                         
+                         <!-- Action Buttons -->
+                         <div class="col-md-4 d-flex align-items-end justify-content-end">
+                             <div class="me-2">
+                                 <button type="reset" class="btn btn-outline-secondary btn-sm">Reset</button>
+                             </div>
+                             <div>
+                                 <button type="submit" class="btn btn-primary">
+                                     <i class="bi bi-search"></i> Search
+                                 </button>
+                             </div>
                          </div>
                      </div>
                  </form>
