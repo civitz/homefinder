@@ -116,7 +116,6 @@ function toggleEditMode() {
         document.getElementById('editFeatures').style.display = 'block';
         document.getElementById('editDescription').style.display = 'block';
         document.getElementById('editFeaturesList').style.display = 'block';
-        document.getElementById('editControls').style.display = 'block';
         
         // Change edit button to cancel
         const editBtn = document.getElementById('editBtn');
@@ -134,7 +133,6 @@ function toggleEditMode() {
         document.getElementById('editFeatures').style.display = 'none';
         document.getElementById('editDescription').style.display = 'none';
         document.getElementById('editFeaturesList').style.display = 'none';
-        document.getElementById('editControls').style.display = 'none';
         
         // Change cancel button back to edit
         const editBtn = document.getElementById('editBtn');
@@ -184,14 +182,12 @@ function savePropertyEdits(propertyId) {
         }
     }
     
-    // Disable save buttons and show loading state
-    const saveBtns = [document.getElementById('saveEditsBtn'), document.getElementById('saveEditsBtnBottom')];
-    saveBtns.forEach(btn => {
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
-        }
-    });
+    // Disable save button and show loading state
+    const saveBtn = document.getElementById('saveEditsBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    }
     
     // Send PUT request to update property
     fetch(`/properties/${propertyId}`, {
@@ -211,12 +207,10 @@ function savePropertyEdits(propertyId) {
     .then(data => {
         if (data.success) {
             // Show success message
-            saveBtns.forEach(btn => {
-                if (btn) {
-                    btn.innerHTML = '✓ Saved Successfully';
-                    btn.className = 'btn btn-success';
-                }
-            });
+            if (saveBtn) {
+                saveBtn.innerHTML = '✓ Saved Successfully';
+                saveBtn.className = 'btn btn-success';
+            }
             
             // Exit edit mode after 2 seconds
             setTimeout(() => {
@@ -229,22 +223,18 @@ function savePropertyEdits(propertyId) {
             }, 2000);
         } else {
             // Show error message
-            saveBtns.forEach(btn => {
-                if (btn) {
-                    btn.innerHTML = '✗ Save Failed';
-                    btn.className = 'btn btn-danger';
-                }
-            });
+            if (saveBtn) {
+                saveBtn.innerHTML = '✗ Save Failed';
+                saveBtn.className = 'btn btn-danger';
+            }
             
-            // Re-enable buttons after 3 seconds
+            // Re-enable button after 3 seconds
             setTimeout(() => {
-                saveBtns.forEach(btn => {
-                    if (btn) {
-                        btn.innerHTML = 'Save Changes';
-                        btn.className = 'btn btn-primary';
-                        btn.disabled = false;
-                    }
-                });
+                if (saveBtn) {
+                    saveBtn.innerHTML = 'Save Changes';
+                    saveBtn.className = 'btn btn-primary';
+                    saveBtn.disabled = false;
+                }
             }, 3000);
         }
     })
@@ -252,22 +242,18 @@ function savePropertyEdits(propertyId) {
         console.error('Error saving property edits:', error);
         
         // Show error message
-        saveBtns.forEach(btn => {
-            if (btn) {
-                btn.innerHTML = '✗ Error';
-                btn.className = 'btn btn-danger';
-            }
-        });
+        if (saveBtn) {
+            saveBtn.innerHTML = '✗ Error';
+            saveBtn.className = 'btn btn-danger';
+        }
         
-        // Re-enable buttons after 3 seconds
+        // Re-enable button after 3 seconds
         setTimeout(() => {
-            saveBtns.forEach(btn => {
-                if (btn) {
-                    btn.innerHTML = 'Save Changes';
-                    btn.className = 'btn btn-primary';
-                    btn.disabled = false;
-                }
-            });
+            if (saveBtn) {
+                saveBtn.innerHTML = 'Save Changes';
+                saveBtn.className = 'btn btn-primary';
+                saveBtn.disabled = false;
+            }
         }, 3000);
     });
 }
