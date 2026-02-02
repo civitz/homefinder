@@ -56,7 +56,10 @@ def search_properties():
                 'contract_type': prop.contract_type.value,
                 'url': prop.url,
                 'agency_listing_id': prop.agency_listing_id,
-                'agency_id': prop.agency_id
+                'agency_id': prop.agency_id,
+                'energy_class': prop.energy_class,
+                'year_built': prop.year_built,
+                'floor': prop.floor
             })
         
         # Get all agencies for dropdown

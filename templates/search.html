@@ -81,25 +81,29 @@
         {% if properties %}
         <p>Found {{ properties|length }} properties matching your criteria.</p>
         
-        <div class="row">
+         <div class="row">
             {% for property in properties %}
             <div class="col-md-4 mb-4">
-                <div class="card property-card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ property.title }}</h5>
-                        <p class="property-price">€ {{ "{:,}".format(property.price|int) }}</p>
-                        <p class="card-text">
-                            {{ property.bedrooms or 'N/A' }} bedrooms, 
-                            {{ property.bathrooms or 'N/A' }} bathrooms, 
-                            {{ property.square_meters or 'N/A' }} m²
-                        </p>
-                        <p class="text-muted">
-                            {{ property.city }} 
-                            {% if property.neighborhood %}| {{ property.neighborhood }}{% endif %}
-                        </p>
-                          <a href="/properties/{{ property.id }}" class="btn btn-sm btn-outline-primary">View Details</a>
+                <a href="/properties/{{ property.id }}" class="text-decoration-none">
+                    <div class="card property-card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ property.title }}</h5>
+                            <p class="property-price">€ {{ "{:,}".format(property.price|int) }}</p>
+                            <p class="card-text">
+                                <span class="property-feature">{{ property.bedrooms or 'N/A' }} bed</span>,
+                                <span class="property-feature">{{ property.bathrooms or 'N/A' }} bath</span>,
+                                <span class="property-feature">{{ property.square_meters or 'N/A' }} m²</span>,
+                                {% if property.energy_class %}<span class="property-feature">E: {{ property.energy_class }}</span>{% endif %}
+                                {% if property.year_built %}<span class="property-feature">Yr: {{ property.year_built }}</span>{% endif %}
+                                {% if property.floor %}<span class="property-feature">Fl: {{ property.floor }}</span>{% endif %}
+                            </p>
+                            <p class="text-muted">
+                                {{ property.city }} 
+                                {% if property.neighborhood %}| {{ property.neighborhood }}{% endif %}
+                            </p>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
             {% endfor %}
         </div>

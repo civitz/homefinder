@@ -21,15 +21,26 @@
         }
         .property-card {
             margin-bottom: 20px;
-            transition: transform 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
         .property-card:hover {
             transform: translateY(-5px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
         }
         .property-price {
             font-weight: bold;
             color: #e74133;
             font-size: 1.2rem;
+        }
+        .property-feature {
+            margin-right: 0.5rem;
+            white-space: nowrap;
+        }
+        .card {
+            cursor: pointer;
+        }
+        .text-decoration-none {
+            color: inherit;
         }
     </style>
 </head>
