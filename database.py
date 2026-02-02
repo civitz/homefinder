@@ -46,46 +46,62 @@ class DatabaseManager:
                         address TEXT,
                         created_at TEXT NOT NULL,
                         updated_at TEXT NOT NULL
-                    )
-                ''')
-                
-                # Create listings table (updated to use agency_id instead of agency)
+                  )
+                  ''')
+                 
+                 # Create raw_html_pages table
                 cursor.execute('''
-                     CREATE TABLE IF NOT EXISTS listings (
+                     CREATE TABLE IF NOT EXISTS raw_html_pages (
                          id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         title TEXT NOT NULL,
-                         agency_id INTEGER NOT NULL,
                          url TEXT UNIQUE NOT NULL,
-                         description TEXT,
-                         contract_type TEXT NOT NULL,
-                         price REAL NOT NULL,
-                         city TEXT NOT NULL,
-                         neighborhood TEXT,
-                         address TEXT,
-                         rooms INTEGER,
-                         bedrooms INTEGER,
-                         bathrooms INTEGER,
-                         square_meters INTEGER,
-                         floor TEXT,
-                         year_built INTEGER,
-                         has_elevator BOOLEAN,
-                         heating TEXT,
-                         has_air_conditioning BOOLEAN,
-                         has_garage BOOLEAN,
-                         is_furnished BOOLEAN,
-                         energy_class TEXT,
-                         energy_consumption REAL,
-                         features TEXT,
+                         agency_id INTEGER NOT NULL,
+                         raw_html TEXT NOT NULL,
                          scrape_date TEXT NOT NULL,
-                         publication_date TEXT,
-                          raw_html_file TEXT,
-                          agency_listing_id TEXT,
-                          modify_date TEXT,
-                          creation_date TEXT NOT NULL,
-                          last_verified_date TEXT,
-                          is_broken BOOLEAN DEFAULT FALSE,
-                          FOREIGN KEY (agency_id) REFERENCES agencies(id)
+                         is_successful BOOLEAN DEFAULT FALSE,
+                         error_message TEXT,
+                         FOREIGN KEY (agency_id) REFERENCES agencies(id)
                      )
+                 ''')
+                 
+                 # Create listings table (updated to use agency_id instead of agency)
+                cursor.execute('''
+                       CREATE TABLE IF NOT EXISTS listings (
+                           id INTEGER PRIMARY KEY AUTOINCREMENT,
+                           title TEXT NOT NULL,
+                           agency_id INTEGER NOT NULL,
+                           url TEXT UNIQUE NOT NULL,
+                           description TEXT,
+                           contract_type TEXT NOT NULL,
+                           price REAL NOT NULL,
+                           city TEXT NOT NULL,
+                           neighborhood TEXT,
+                           address TEXT,
+                           rooms INTEGER,
+                           bedrooms INTEGER,
+                           bathrooms INTEGER,
+                           square_meters INTEGER,
+                           floor TEXT,
+                           year_built INTEGER,
+                           has_elevator BOOLEAN,
+                           heating TEXT,
+                           has_air_conditioning BOOLEAN,
+                           has_garage BOOLEAN,
+                           is_furnished BOOLEAN,
+                           energy_class TEXT,
+                           energy_consumption REAL,
+                           features TEXT,
+                           scrape_date TEXT NOT NULL,
+                           publication_date TEXT,
+                            raw_html_file TEXT,
+                            agency_listing_id TEXT,
+                            modify_date TEXT,
+                            creation_date TEXT NOT NULL,
+                            last_verified_date TEXT,
+                            is_broken BOOLEAN DEFAULT FALSE,
+                            raw_html_page_id INTEGER,
+                            FOREIGN KEY (agency_id) REFERENCES agencies(id),
+                            FOREIGN KEY (raw_html_page_id) REFERENCES raw_html_pages(id)
+                       )
                  ''')
                  
                 # Create indexes for better search performance
@@ -348,6 +364,156 @@ class DatabaseManager:
             if self.save_listing(listing):
                 success_count += 1
         return success_count
+
+    def save_raw_html_page(self, url: str, agency_id: int, raw_html: str, is_successful: bool = False, error_message: Optional[str] = None) -> int:
+        """Save raw HTML page to database.
+        
+        Args:
+            url: The URL of the page
+            agency_id: ID of the agency that owns this listing
+            raw_html: The raw HTML content
+            is_successful: Whether scraping was successful
+            error_message: Error message if scraping failed
+            
+        Returns:
+            ID of the saved raw HTML page, or -1 on error
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Check if this URL already exists
+                cursor.execute('SELECT id FROM raw_html_pages WHERE url = ?', (url,))
+                existing = cursor.fetchone()
+                
+                if existing:
+                    # Update existing record
+                    update_query = '''
+                        UPDATE raw_html_pages SET 
+                            agency_id = ?,
+                            raw_html = ?,
+                            scrape_date = ?,
+                            is_successful = ?,
+                            error_message = ?
+                        WHERE url = ?
+                    '''
+                    
+                    cursor.execute(update_query, (
+                        agency_id,
+                        raw_html,
+                        datetime.now().isoformat(),
+                        is_successful,
+                        error_message,
+                        url
+                    ))
+                    
+                    self.logger.info(f"Updated existing raw HTML page: {url}")
+                    conn.commit()
+                    return existing[0]
+                else:
+                    # Insert new record
+                    insert_query = '''
+                        INSERT INTO raw_html_pages 
+                            (url, agency_id, raw_html, scrape_date, is_successful, error_message)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    '''
+                    
+                    cursor.execute(insert_query, (
+                        url,
+                        agency_id,
+                        raw_html,
+                        datetime.now().isoformat(),
+                        is_successful,
+                        error_message
+                    ))
+                    
+                    page_id = cursor.lastrowid or -1
+                    self.logger.info(f"Inserted new raw HTML page: {url} (ID: {page_id})")
+                    conn.commit()
+                    return page_id
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error saving raw HTML page {url}: {e}")
+            return -1
+
+    def update_raw_html_page_success(self, page_id: int, is_successful: bool = True, error_message: Optional[str] = None) -> bool:
+        """Update the success status of a raw HTML page.
+        
+        Args:
+            page_id: ID of the raw HTML page
+            is_successful: Whether scraping was successful
+            error_message: Error message if scraping failed
+            
+        Returns:
+            True if update was successful, False otherwise
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                update_query = '''
+                    UPDATE raw_html_pages SET 
+                        is_successful = ?,
+                        error_message = ?
+                    WHERE id = ?
+                '''
+                
+                cursor.execute(update_query, (
+                    is_successful,
+                    error_message,
+                    page_id
+                ))
+                
+                conn.commit()
+                
+                if cursor.rowcount > 0:
+                    self.logger.info(f"Updated raw HTML page {page_id} success status: {is_successful}")
+                    return True
+                else:
+                    self.logger.warning(f"No raw HTML page found with ID {page_id}")
+                    return False
+                    
+        except sqlite3.Error as e:
+            self.logger.error(f"Error updating raw HTML page {page_id}: {e}")
+            return False
+
+    def get_raw_html_page_by_id(self, page_id: int) -> Optional[Dict[str, Any]]:
+        """Get raw HTML page by ID.
+        
+        Args:
+            page_id: ID of the raw HTML page
+            
+        Returns:
+            Dictionary with page data, or None if not found
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT id, url, agency_id, raw_html, scrape_date, is_successful, error_message 
+                    FROM raw_html_pages 
+                    WHERE id = ?
+                ''', (page_id,))
+                
+                row = cursor.fetchone()
+                
+                if row:
+                    return {
+                        'id': row[0],
+                        'url': row[1],
+                        'agency_id': row[2],
+                        'raw_html': row[3],
+                        'scrape_date': row[4],
+                        'is_successful': bool(row[5]),
+                        'error_message': row[6]
+                    }
+                
+                return None
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching raw HTML page {page_id}: {e}")
+            return None
 
     def update_listing(self, listing_id: int, update_data: Dict[str, Any]) -> bool:
         """Update a listing by ID with transaction support."""
