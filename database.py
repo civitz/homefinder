@@ -21,6 +21,43 @@ class Agency:
     updated_at: str = ""
 
 
+@dataclass
+class TelegramConfiguration:
+    """Data model for Telegram bot configurations."""
+    id: Optional[int] = None
+    bot_token: str = ""
+    bot_name: Optional[str] = None
+    chat_id: Optional[str] = None
+    is_active: bool = True
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass
+class NotificationSubscription:
+    """Data model for notification subscriptions."""
+    id: Optional[int] = None
+    user_id: str = ""
+    subscription_name: str = ""
+    search_filters: Optional[Dict[str, Any]] = None
+    telegram_config_id: int = 0
+    is_active: bool = True
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass
+class NotificationHistory:
+    """Data model for notification history."""
+    id: Optional[int] = None
+    listing_id: int = 0
+    subscription_id: int = 0
+    notification_sent_at: str = ""
+    telegram_message_id: Optional[str] = None
+    is_successful: bool = False
+    error_message: Optional[str] = None
+
+
 class DatabaseManager:
     """Database manager for property listings."""
     
@@ -965,6 +1002,636 @@ class DatabaseManager:
             self.logger.error(f"Error getting last scrape time: {e}")
             return None
 
+    # Telegram Configuration Methods
+    def _ensure_notification_tables_exist(self) -> None:
+        """Ensure notification tables exist in the database."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Create telegram_configurations table if it doesn't exist
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS telegram_configurations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        bot_token TEXT NOT NULL UNIQUE,
+                        bot_name TEXT,
+                        chat_id TEXT,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    )
+                ''')
+                
+                # Add chat_id column if it doesn't exist (for existing databases)
+                try:
+                    cursor.execute('ALTER TABLE telegram_configurations ADD COLUMN chat_id TEXT')
+                    conn.commit()
+                    self.logger.info("Added chat_id column to telegram_configurations table")
+                except sqlite3.Error:
+                    # Column already exists or table doesn't exist, which is fine
+                    pass
+
+                # Create notification_subscriptions table if it doesn't exist
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS notification_subscriptions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id TEXT NOT NULL,
+                        subscription_name TEXT NOT NULL,
+                        search_filters TEXT NOT NULL,
+                        telegram_config_id INTEGER NOT NULL,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        FOREIGN KEY (telegram_config_id) REFERENCES telegram_configurations(id) ON DELETE CASCADE
+                    )
+                ''')
+                
+                 # Add telegram_config_id column if it doesn't exist (for existing databases)
+                try:
+                    cursor.execute('ALTER TABLE notification_subscriptions ADD COLUMN telegram_config_id INTEGER')
+                    conn.commit()
+                    self.logger.info("Added telegram_config_id column to notification_subscriptions table")
+                except sqlite3.Error:
+                    # Column already exists or table doesn't exist, which is fine
+                    pass
+                
+                # Handle migration from telegram_chat_id to telegram_config_id (if old schema exists)
+                try:
+                    # Check if telegram_chat_id column exists
+                    cursor.execute("PRAGMA table_info(notification_subscriptions)")
+                    columns = [column[1] for column in cursor.fetchall()]
+                    
+                    if 'telegram_chat_id' in columns:
+                        # First, drop the foreign key constraint if it exists
+                        try:
+                            cursor.execute("PRAGMA foreign_keys=OFF")
+                            # Recreate the table without the old column
+                            cursor.execute('''
+                                CREATE TABLE IF NOT EXISTS notification_subscriptions_new (
+                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                    user_id TEXT NOT NULL,
+                                    subscription_name TEXT NOT NULL,
+                                    search_filters TEXT NOT NULL,
+                                    telegram_config_id INTEGER NOT NULL,
+                                    is_active BOOLEAN DEFAULT TRUE,
+                                    created_at TEXT NOT NULL,
+                                    updated_at TEXT NOT NULL,
+                                    FOREIGN KEY (telegram_config_id) REFERENCES telegram_configurations(id) ON DELETE CASCADE
+                                )
+                            ''')
+                            
+                            # Copy data from old table to new table
+                            cursor.execute('''
+                                INSERT INTO notification_subscriptions_new 
+                                    (id, user_id, subscription_name, search_filters, telegram_config_id, is_active, created_at, updated_at)
+                                SELECT 
+                                    id, user_id, subscription_name, search_filters, telegram_chat_id, is_active, created_at, updated_at
+                                FROM notification_subscriptions
+                            ''')
+                            
+                            # Drop old table and rename new table
+                            cursor.execute('DROP TABLE notification_subscriptions')
+                            cursor.execute('ALTER TABLE notification_subscriptions_new RENAME TO notification_subscriptions')
+                            
+                            conn.commit()
+                            self.logger.info("Migrated from telegram_chat_id to telegram_config_id")
+                        finally:
+                            cursor.execute("PRAGMA foreign_keys=ON")
+                except sqlite3.Error as e:
+                    self.logger.warning(f"Could not migrate telegram_chat_id column: {e}")
+                    # This is not critical, continue execution
+
+                # Create notification_history table if it doesn't exist
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS notification_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        listing_id INTEGER NOT NULL,
+                        subscription_id INTEGER NOT NULL,
+                        notification_sent_at TEXT NOT NULL,
+                        telegram_message_id TEXT,
+                        is_successful BOOLEAN DEFAULT FALSE,
+                        error_message TEXT,
+                        FOREIGN KEY (listing_id) REFERENCES listings(id),
+                        FOREIGN KEY (subscription_id) REFERENCES notification_subscriptions(id),
+                        UNIQUE(listing_id, subscription_id)
+                    )
+                ''')
+                
+                conn.commit()
+                self.logger.info("Ensured notification tables exist")
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error ensuring notification tables exist: {e}")
+            raise
+
+    def save_telegram_config(self, config: TelegramConfiguration) -> int:
+        """Save Telegram configuration to database."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                now = datetime.now().isoformat()
+                
+                # Check if configuration already exists
+                cursor.execute('SELECT id FROM telegram_configurations WHERE bot_token = ?', (config.bot_token,))
+                existing = cursor.fetchone()
+                
+                if existing:
+                    # Update existing configuration
+                    update_query = '''
+                        UPDATE telegram_configurations SET 
+                            bot_name = ?,
+                            chat_id = ?,
+                            is_active = ?,
+                            updated_at = ?
+                        WHERE id = ?
+                    '''
+                    
+                    cursor.execute(update_query, (
+                        config.bot_name,
+                        config.chat_id,
+                        config.is_active,
+                        now,
+                        existing[0]
+                    ))
+                    
+                    self.logger.info(f"Updated Telegram configuration: {config.bot_name}")
+                    conn.commit()
+                    return existing[0]
+                else:
+                    # Insert new configuration
+                    insert_query = '''
+                        INSERT INTO telegram_configurations 
+                            (bot_token, bot_name, chat_id, is_active, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    '''
+                    
+                    cursor.execute(insert_query, (
+                        config.bot_token,
+                        config.bot_name,
+                        config.chat_id,
+                        config.is_active,
+                        now,
+                        now
+                    ))
+                    
+                    config_id = cursor.lastrowid or -1
+                    self.logger.info(f"Inserted new Telegram configuration: {config.bot_name} (ID: {config_id})")
+                    conn.commit()
+                    return config_id
+                    
+        except sqlite3.Error as e:
+            self.logger.error(f"Error saving Telegram configuration: {e}")
+            return -1
+
+    def get_all_telegram_configs(self) -> List[TelegramConfiguration]:
+        """Get all Telegram configurations."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, bot_token, bot_name, chat_id, is_active, created_at, updated_at 
+                    FROM telegram_configurations 
+                    ORDER BY created_at DESC
+                ''')
+                rows = cursor.fetchall()
+                
+                configs = []
+                for row in rows:
+                    configs.append(TelegramConfiguration(
+                        id=row[0],
+                        bot_token=row[1],
+                        bot_name=row[2],
+                        chat_id=row[3],
+                        is_active=bool(row[4]),
+                        created_at=row[5],
+                        updated_at=row[6]
+                    ))
+                
+                return configs
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching all Telegram configs: {e}")
+            return []
+
+    def get_active_telegram_configs(self) -> List[TelegramConfiguration]:
+        """Get all active Telegram configurations."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, bot_token, bot_name, chat_id, is_active, created_at, updated_at 
+                    FROM telegram_configurations 
+                    WHERE is_active = TRUE 
+                    ORDER BY created_at DESC
+                ''')
+                rows = cursor.fetchall()
+                
+                configs = []
+                for row in rows:
+                    configs.append(TelegramConfiguration(
+                        id=row[0],
+                        bot_token=row[1],
+                        bot_name=row[2],
+                        chat_id=row[3],
+                        is_active=bool(row[4]),
+                        created_at=row[5],
+                        updated_at=row[6]
+                    ))
+                
+                return configs
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching active Telegram configs: {e}")
+            return []
+
+    def get_telegram_config_by_id(self, config_id: int) -> Optional[TelegramConfiguration]:
+        """Get Telegram configuration by ID."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, bot_token, bot_name, chat_id, is_active, created_at, updated_at 
+                    FROM telegram_configurations 
+                    WHERE id = ?
+                ''', (config_id,))
+                row = cursor.fetchone()
+                
+                if row:
+                    return TelegramConfiguration(
+                        id=row[0],
+                        bot_token=row[1],
+                        bot_name=row[2],
+                        chat_id=row[3],
+                        is_active=bool(row[4]),
+                        created_at=row[5],
+                        updated_at=row[6]
+                    )
+                
+                return None
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching Telegram config by ID {config_id}: {e}")
+            return None
+
+    def delete_telegram_config(self, config_id: int) -> bool:
+        """Delete Telegram configuration by ID."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM telegram_configurations WHERE id = ?', (config_id,))
+                conn.commit()
+                
+                if cursor.rowcount > 0:
+                    self.logger.info(f"Deleted Telegram configuration ID {config_id}")
+                    return True
+                else:
+                    self.logger.warning(f"No Telegram configuration found with ID {config_id}")
+                    return False
+                    
+        except sqlite3.Error as e:
+            self.logger.error(f"Error deleting Telegram config {config_id}: {e}")
+            return False
+
+    # Notification Subscription Methods
+    def get_active_notification_subscriptions(self) -> List[NotificationSubscription]:
+        """Get all active notification subscriptions."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, user_id, subscription_name, search_filters, 
+                           telegram_config_id, is_active, created_at, updated_at 
+                    FROM notification_subscriptions 
+                    WHERE is_active = TRUE 
+                    ORDER BY created_at DESC
+                ''')
+                rows = cursor.fetchall()
+                
+                subscriptions = []
+                for row in rows:
+                    # Parse search_filters from JSON
+                    import json
+                    search_filters = json.loads(row[3]) if row[3] else {}
+                    
+                    subscriptions.append(NotificationSubscription(
+                        id=row[0],
+                        user_id=row[1],
+                        subscription_name=row[2],
+                        search_filters=search_filters,
+                        telegram_config_id=row[4],
+                        is_active=bool(row[5]),
+                        created_at=row[6],
+                        updated_at=row[7]
+                    ))
+                
+                return subscriptions
+                
+        except Exception as e:
+            self.logger.error(f"Error fetching active notification subscriptions: {e}")
+            return []
+
+    def delete_notification_subscription(self, subscription_id: int) -> bool:
+        """Delete notification subscription by ID."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM notification_subscriptions WHERE id = ?', (subscription_id,))
+                conn.commit()
+                
+                if cursor.rowcount > 0:
+                    self.logger.info(f"Deleted notification subscription ID {subscription_id}")
+                    return True
+                else:
+                    self.logger.warning(f"No notification subscription found with ID {subscription_id}")
+                    return False
+                    
+        except sqlite3.Error as e:
+            self.logger.error(f"Error deleting notification subscription {subscription_id}: {e}")
+            return False
+
+    def save_notification_subscription(self, subscription: NotificationSubscription) -> int:
+        """Save notification subscription to database."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                now = datetime.now().isoformat()
+                
+                # Convert search_filters to JSON string
+                import json
+                search_filters_json = json.dumps(subscription.search_filters or {})
+                
+                if subscription.id:
+                    # Update existing subscription
+                    update_query = '''
+                        UPDATE notification_subscriptions SET 
+                            user_id = ?,
+                            subscription_name = ?,
+                            search_filters = ?,
+                            telegram_config_id = ?,
+                            is_active = ?,
+                            updated_at = ?
+                        WHERE id = ?
+                    '''
+                    
+                    cursor.execute(update_query, (
+                        subscription.user_id,
+                        subscription.subscription_name,
+                        search_filters_json,
+                        subscription.telegram_config_id,
+                        subscription.is_active,
+                        now,
+                        subscription.id
+                    ))
+                    
+                    self.logger.info(f"Updated notification subscription: {subscription.subscription_name}")
+                    conn.commit()
+                    return subscription.id
+                else:
+                    # Insert new subscription
+                    insert_query = '''
+                        INSERT INTO notification_subscriptions 
+                            (user_id, subscription_name, search_filters, 
+                             telegram_config_id, is_active, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    '''
+                    
+                    cursor.execute(insert_query, (
+                        subscription.user_id,
+                        subscription.subscription_name,
+                        search_filters_json,
+                        subscription.telegram_config_id,
+                        subscription.is_active,
+                        now,
+                        now
+                    ))
+                    
+                    subscription_id = cursor.lastrowid or -1
+                    self.logger.info(f"Inserted new notification subscription: {subscription.subscription_name} (ID: {subscription_id})")
+                    conn.commit()
+                    return subscription_id
+                    
+        except sqlite3.Error as e:
+            self.logger.error(f"Error saving notification subscription: {e}")
+            return -1
+
+    def get_notification_subscription_by_id(self, subscription_id: int) -> Optional[NotificationSubscription]:
+        """Get notification subscription by ID."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, user_id, subscription_name, search_filters, 
+                           telegram_config_id, is_active, created_at, updated_at 
+                    FROM notification_subscriptions 
+                    WHERE id = ?
+                ''', (subscription_id,))
+                row = cursor.fetchone()
+                
+                if row:
+                    # Parse search_filters from JSON
+                    import json
+                    search_filters = json.loads(row[3]) if row[3] else {}
+                    
+                    return NotificationSubscription(
+                        id=row[0],
+                        user_id=row[1],
+                        subscription_name=row[2],
+                        search_filters=search_filters,
+                        telegram_config_id=row[4],
+                        is_active=bool(row[5]),
+                        created_at=row[6],
+                        updated_at=row[7]
+                    )
+                
+                return None
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching notification subscription by ID {subscription_id}: {e}")
+            return None
+
+    def log_notification(self, listing_id: int, subscription_id: int, telegram_message_id: Optional[str], 
+                        is_successful: bool, error_message: Optional[str] = None) -> int:
+        """Log a notification to the notification history."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Check if this notification already exists (duplicate prevention)
+                cursor.execute('''
+                    SELECT id FROM notification_history 
+                    WHERE listing_id = ? AND subscription_id = ?
+                ''', (listing_id, subscription_id))
+                existing = cursor.fetchone()
+                
+                if existing:
+                    # Update existing notification
+                    update_query = '''
+                        UPDATE notification_history SET 
+                            telegram_message_id = ?,
+                            is_successful = ?,
+                            error_message = ?
+                        WHERE id = ?
+                    '''
+                    
+                    cursor.execute(update_query, (
+                        telegram_message_id,
+                        is_successful,
+                        error_message,
+                        existing[0]
+                    ))
+                    
+                    self.logger.info(f"Updated existing notification for listing {listing_id}, subscription {subscription_id}")
+                    conn.commit()
+                    return existing[0]
+                else:
+                    # Insert new notification
+                    insert_query = '''
+                        INSERT INTO notification_history 
+                            (listing_id, subscription_id, notification_sent_at, 
+                             telegram_message_id, is_successful, error_message)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    '''
+                    
+                    cursor.execute(insert_query, (
+                        listing_id,
+                        subscription_id,
+                        datetime.now().isoformat(),
+                        telegram_message_id,
+                        is_successful,
+                        error_message
+                    ))
+                    
+                    notification_id = cursor.lastrowid or -1
+                    self.logger.info(f"Logged notification for listing {listing_id}, subscription {subscription_id} (ID: {notification_id})")
+                    conn.commit()
+                    return notification_id
+                    
+        except sqlite3.Error as e:
+            self.logger.error(f"Error logging notification: {e}")
+            return -1
+
+    def get_notification_count_for_listing(self, listing_id: int) -> int:
+        """Get the number of notifications sent for a listing."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT COUNT(*) FROM notification_history 
+                    WHERE listing_id = ?
+                ''', (listing_id,))
+                count = cursor.fetchone()[0]
+                return count or 0
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting notification count for listing {listing_id}: {e}")
+            return 0
+
+    def get_notification_history_for_subscription(self, subscription_id: int) -> List[NotificationHistory]:
+        """Get notification history for a specific subscription."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, listing_id, subscription_id, notification_sent_at, 
+                           telegram_message_id, is_successful, error_message 
+                    FROM notification_history 
+                    WHERE subscription_id = ?
+                    ORDER BY notification_sent_at DESC
+                ''', (subscription_id,))
+                rows = cursor.fetchall()
+                
+                history = []
+                for row in rows:
+                    history.append(NotificationHistory(
+                        id=row[0],
+                        listing_id=row[1],
+                        subscription_id=row[2],
+                        notification_sent_at=row[3],
+                        telegram_message_id=row[4],
+                        is_successful=bool(row[5]),
+                        error_message=row[6]
+                    ))
+                
+                return history
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting notification history for subscription {subscription_id}: {e}")
+            return []
+
+    # Notification History Methods
+    def get_recent_notification_history(self, limit: int = 20) -> List[NotificationHistory]:
+        """Get recent notification history."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, listing_id, subscription_id, notification_sent_at, 
+                           telegram_message_id, is_successful, error_message 
+                    FROM notification_history 
+                    ORDER BY notification_sent_at DESC 
+                    LIMIT ?
+                ''', (limit,))
+                rows = cursor.fetchall()
+                
+                history = []
+                for row in rows:
+                    history.append(NotificationHistory(
+                        id=row[0],
+                        listing_id=row[1],
+                        subscription_id=row[2],
+                        notification_sent_at=row[3],
+                        telegram_message_id=row[4],
+                        is_successful=bool(row[5]),
+                        error_message=row[6]
+                    ))
+                
+                return history
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting recent notification history: {e}")
+            return []
+
     def get_scrape_history(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent scrape history."""
         try:
@@ -992,5 +1659,5 @@ class DatabaseManager:
                 return history
                 
         except sqlite3.Error as e:
-            self.logger.error(f"Error getting scrape history: {e}")
+            self.logger.error(f"Error getting recent scrape history: {e}")
             return []

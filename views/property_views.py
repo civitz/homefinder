@@ -1,6 +1,15 @@
-from flask import Blueprint, render_template, request, jsonify, current_app
+from flask import Blueprint, render_template, request, jsonify, current_app, session
 from typing import List, Dict, Any
 from datetime import datetime
+import json
+
+
+def get_agency_name_safe(db_manager, agency_id: int) -> str:
+    """Safely get agency name, returning 'Unknown Agency' if not found."""
+    if not agency_id:
+        return 'Unknown Agency'
+    agency = db_manager.get_agency_by_id(agency_id)
+    return agency.name if agency else 'Unknown Agency'
 
 
 # Create property blueprint
@@ -94,49 +103,54 @@ def search_properties():
         # Get all agencies for dropdown
         agencies = db_manager.get_all_agencies()
          
+        # Check if Telegram notifications are available
+        telegram_available = len(db_manager.get_active_telegram_configs()) > 0
+        
         return render_template('search.html', 
-                             properties=properties_data, 
-                             search_params={
-                                 'city': city,
-                                 'min_price': min_price,
-                                 'max_price': max_price,
-                                 'min_size': min_size,
-                                 'contract_type': contract_type,
-                                 'agency_id': agency_id,
-                                 'min_bedrooms': min_bedrooms,
-                                 'min_bathrooms': min_bathrooms,
-                                 'neighborhood': neighborhood,
-                                 'min_year_built': min_year_built,
-                                 'has_air_conditioning': has_air_conditioning,
-                                 'has_garage': has_garage,
-                                 'min_energy_class': min_energy_class,
-                                 'heating': heating,
-                                 'min_rooms': min_rooms
-                             },
-                             agencies=agencies)
+                              properties=properties_data, 
+                              search_params={
+                                  'city': city,
+                                  'min_price': min_price,
+                                  'max_price': max_price,
+                                  'min_size': min_size,
+                                  'contract_type': contract_type,
+                                  'agency_id': agency_id,
+                                  'min_bedrooms': min_bedrooms,
+                                  'min_bathrooms': min_bathrooms,
+                                  'neighborhood': neighborhood,
+                                  'min_year_built': min_year_built,
+                                  'has_air_conditioning': has_air_conditioning,
+                                  'has_garage': has_garage,
+                                  'min_energy_class': min_energy_class,
+                                  'heating': heating,
+                                  'min_rooms': min_rooms
+                              },
+                              agencies=agencies,
+                              telegram_available=telegram_available)
      
     except Exception as e:
         current_app.logger.error(f"Error in property search: {e}")
         return render_template('search.html', 
-                             properties=[], 
-                             search_params={
-                                 'city': city,
-                                 'min_price': min_price,
-                                 'max_price': max_price,
-                                 'min_size': min_size,
-                                 'contract_type': contract_type,
-                                 'agency_id': agency_id,
-                                 'min_bedrooms': min_bedrooms,
-                                 'min_bathrooms': min_bathrooms,
-                                 'neighborhood': neighborhood,
-                                 'min_year_built': min_year_built,
-                                 'has_air_conditioning': has_air_conditioning,
-                                 'has_garage': has_garage,
-                                 'min_energy_class': min_energy_class,
-                                 'heating': heating,
-                                 'min_rooms': min_rooms
-                             },
-                             agencies=[])
+                              properties=[], 
+                              search_params={
+                                  'city': city,
+                                  'min_price': min_price,
+                                  'max_price': max_price,
+                                  'min_size': min_size,
+                                  'contract_type': contract_type,
+                                  'agency_id': agency_id,
+                                  'min_bedrooms': min_bedrooms,
+                                  'min_bathrooms': min_bathrooms,
+                                  'neighborhood': neighborhood,
+                                  'min_year_built': min_year_built,
+                                  'has_air_conditioning': has_air_conditioning,
+                                  'has_garage': has_garage,
+                                  'min_energy_class': min_energy_class,
+                                  'heating': heating,
+                                  'min_rooms': min_rooms
+                              },
+                              agencies=[],
+                              telegram_available=False)
 
 
 @property_bp.route('/<int:property_id>')
@@ -178,7 +192,7 @@ def property_detail(property_id: int):
                 'publication_date': property_data.publication_date,
                 'modify_date': property_data.modify_date,
                 'agency_id': property_data.agency_id,
-                'agency': db_manager.get_agency_by_id(property_data.agency_id).name if db_manager.get_agency_by_id(property_data.agency_id) else 'Unknown Agency',
+                'agency': get_agency_name_safe(db_manager, property_data.agency_id),
                 'contract_type': property_data.contract_type.value,
                 'url': property_data.url,
                 'agency_listing_id': property_data.agency_listing_id
@@ -438,6 +452,169 @@ def save_as_example(property_id: int):
             
     except Exception as e:
         current_app.logger.error(f"Error saving property as example: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@property_bp.route('/enable-notifications', methods=['POST'])
+def enable_notifications():
+    """Enable Telegram notifications for current search."""
+    try:
+        from database import DatabaseManager, NotificationSubscription
+        from notification_service import TelegramService
+        
+        db_manager = DatabaseManager()
+        
+        # Get current search parameters
+        search_params = request.form.to_dict()
+        subscription_name = request.form.get('subscription_name', 'My Search')
+        
+        # Validate Telegram configuration exists
+        telegram_configs = db_manager.get_active_telegram_configs()
+        if not telegram_configs:
+            return jsonify({
+                "success": False,
+                "error": "No Telegram configuration available. Please configure Telegram bot first."
+            }), 400
+        
+        # Get the first active Telegram configuration
+        telegram_config = telegram_configs[0]
+        
+        # Ensure we have a valid config ID
+        if telegram_config.id is None:
+            return jsonify({
+                "success": False,
+                "error": "Telegram configuration ID is invalid"
+            }), 500
+        
+        # Create subscription
+        subscription = NotificationSubscription(
+            user_id=str(request.remote_addr),  # Or use authenticated user ID
+            subscription_name=subscription_name,
+            search_filters=search_params,
+            telegram_config_id=int(telegram_config.id),  # Cast to int since we checked it's not None
+            is_active=True
+        )
+        
+        subscription_id = db_manager.save_notification_subscription(subscription)
+        
+        if subscription_id > 0:
+            # Test the notification service
+            telegram_service = TelegramService(db_manager, dry_run=True)
+            test_message = f"🎉 New notification subscription created: {subscription_name}"
+            test_success = telegram_service.send_notification(
+                int(telegram_config.id),  # Cast to int since we checked it's not None
+                test_message,
+                "https://example.com"
+            )
+            
+            if test_success:
+                return jsonify({
+                    "success": True,
+                    "subscription_id": subscription_id,
+                    "message": "Notifications enabled for this search",
+                    "test_sent": True
+                })
+            else:
+                return jsonify({
+                    "success": True,
+                    "subscription_id": subscription_id,
+                    "message": "Notifications enabled for this search (test notification failed)",
+                    "test_sent": False
+                })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to create notification subscription"
+            }), 500
+        
+    except Exception as e:
+        current_app.logger.error(f"Error enabling notifications: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@property_bp.route('/my-subscriptions')
+def my_subscriptions():
+    """Get current user's notification subscriptions."""
+    try:
+        from database import DatabaseManager
+        
+        db_manager = DatabaseManager()
+        user_id = str(request.remote_addr)  # Or use authenticated user ID
+        
+        subscriptions = db_manager.get_notification_subscriptions_by_user(user_id)
+        
+        # Convert to JSON-friendly format
+        subscriptions_data = []
+        for sub in subscriptions:
+            subscriptions_data.append({
+                'id': sub.id,
+                'subscription_name': sub.subscription_name,
+                'search_filters': sub.search_filters,
+                'is_active': sub.is_active,
+                'created_at': sub.created_at,
+                'updated_at': sub.updated_at
+            })
+        
+        return jsonify({
+            "success": True,
+            "subscriptions": subscriptions_data,
+            "count": len(subscriptions_data)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting user subscriptions: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "subscriptions": []
+        }), 500
+
+
+@property_bp.route('/subscription/<int:subscription_id>', methods=['DELETE'])
+def delete_subscription(subscription_id: int):
+    """Delete a notification subscription."""
+    try:
+        from database import DatabaseManager
+        
+        db_manager = DatabaseManager()
+        user_id = str(request.remote_addr)  # Or use authenticated user ID
+        
+        # Verify this subscription belongs to the current user
+        subscription = db_manager.get_notification_subscription_by_id(subscription_id)
+        if not subscription:
+            return jsonify({
+                "success": False,
+                "error": "Subscription not found"
+            }), 404
+        
+        if subscription.user_id != user_id:
+            return jsonify({
+                "success": False,
+                "error": "You can only delete your own subscriptions"
+            }), 403
+        
+        # Delete the subscription
+        success = db_manager.delete_notification_subscription(subscription_id)
+        
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Subscription deleted successfully"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to delete subscription"
+            }), 500
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting subscription: {e}")
         return jsonify({
             "success": False,
             "error": str(e)

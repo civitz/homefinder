@@ -140,7 +140,7 @@
     </div>
 </div>
 
-<div class="row mt-4">
+        <div class="row mt-4">
     <div class="col-md-12">
         <div class="card">
             <div class="card-header bg-info text-white">
@@ -154,6 +154,42 @@
                 </ul>
                 <div class="mt-3">
                     <small class="text-muted">API endpoints require proper authentication in production environments.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Notification Management</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Telegram Configuration</h5>
+                                <p class="card-text">Set up Telegram bot for property notifications.</p>
+                                <a href="{{ url_for('main.admin_telegram') }}" class="btn btn-primary">
+                                    <i class="bi bi-telegram"></i> Configure Telegram
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <h5 class="card-title">Notifications Dashboard</h5>
+                                <p class="card-text">Manage subscriptions and view notification history.</p>
+                                <a href="{{ url_for('main.admin_notifications') }}" class="btn btn-info">
+                                    <i class="bi bi-bell"></i> View Notifications
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

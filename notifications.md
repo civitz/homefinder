@@ -409,3 +409,17 @@ This plan provides a robust foundation for implementing Telegram notifications i
 - **Testability**: Full support for mocked Telegram API testing
 - **User Control**: Flexible subscription management
 - **Security**: Proper handling of sensitive Telegram credentials
+
+----------------
+
+Addendum:
+- NotificationSubscription should reference the corresponding TelegramConfiguration
+- NotificationSubscription should be deleted alongside TelegramConfiguration if those are deleted
+- the database.py file should not call the notificaiton service
+- the database.py code should only save listings (you should move _trigger_notification_check, _has_active_telegram_config, _is_new_listing, _queue_notification_check elsewhere or remove them altogether)
+- a periodic job (once every minute) should check, for each NotificationSubscription, if there are new listings available that match the query; to check whether or not the listing have been sent, it should check the NotificationHistory table; you can use database.py "get_listings_since" in the periodic job. the periodic job should basically be NotificationEngine, you can modify that class if needed. Create the thread on main.py.
+- the periodic job should stop with the same poison pill as the others
+- the mock telegram API should only be used in tests, please don't reference it in the production code; you can remove the MockTelegramAPI and instead rely on a "dryrun" mode for TelegramService
+- be sure to move the "import" statements at the top of the files
+- check whether this plan is at least partially implemented
+- the telegram admin page should ask for chat id in the form when creating a telegram configuration

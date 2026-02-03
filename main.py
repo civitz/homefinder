@@ -20,6 +20,7 @@ from database import DatabaseManager
 from background_scraper import BackgroundScraper
 from background_scraper import set_background_scraper
 from broken_link_cleaner import BrokenLinkCleaner
+from notification_service import NotificationEngine, TelegramService
 from config import MIN_SCRAPE_INTERVAL_SECONDS
 
 # Global poison pill for graceful shutdown
@@ -85,6 +86,24 @@ def main(args=None):
             # Start broken link cleaner
             broken_link_cleaner.start()
             logger.info("Broken link cleanup enabled")
+
+        # Initialize notification service
+        telegram_service = TelegramService(db_manager, dry_run=DEBUG)
+        notification_engine = NotificationEngine(db_manager, telegram_service)
+        
+        if args.no_notifications:
+            logger.info("Notification service disabled")
+        else:
+            # Start notification service in background
+            import threading
+            notification_thread = threading.Thread(
+                target=notification_engine.run_periodic_check,
+                args=(stop_at_next,),
+                daemon=True,
+                name="NotificationService"
+            )
+            notification_thread.start()
+            logger.info("Notification service enabled")
 
          # Create necessary directories
         DOWNLOAD_DIR.mkdir(exist_ok=True)
@@ -165,10 +184,15 @@ def parse_arguments(argv=None):
          help='Delay between HTTP requests in milliseconds (default: from config)'
     )
     parser.add_argument(
-         '--no-broken-link-cleanup',
-         action='store_true',
-         help='Disable broken link cleanup service'
-     )
+        '--no-broken-link-cleanup',
+        action='store_true',
+        help='Disable broken link cleanup service'
+    )
+    parser.add_argument(
+        '--no-notifications',
+        action='store_true',
+        help='Disable notification service'
+    )
     
     if argv is None:
         return parser.parse_args()

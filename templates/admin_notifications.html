@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}HomeFinder - Notifications Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="display-4 mb-4">Notifications Dashboard</h1>
+        <p class="lead">Manage property notifications and subscriptions.</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Notification System Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card text-center mb-3">
+                            <div class="card-body">
+                                <h3 class="card-title">
+                                    {% if telegram_configs %}
+                                        <i class="bi bi-check-circle text-success"></i>
+                                    {% else %}
+                                        <i class="bi bi-exclamation-triangle text-warning"></i>
+                                    {% endif %}
+                                </h3>
+                                <p class="card-text">
+                                    {% if telegram_configs %}
+                                        Telegram Configured
+                                    {% else %}
+                                        No Telegram Config
+                                    {% endif %}
+                                </p>
+                                <a href="{{ url_for('main.admin_telegram') }}" class="btn btn-sm btn-outline-primary">
+                                    {% if telegram_configs %}
+                                        Manage Configurations
+                                    {% else %}
+                                        Setup Telegram
+                                    {% endif %}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="card text-center mb-3">
+                            <div class="card-body">
+                                <h3 class="card-title">{{ active_subscriptions|length }}</h3>
+                                <p class="card-text">Active Subscriptions</p>
+                                <a href="#subscriptions" class="btn btn-sm btn-outline-primary">View Subscriptions</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="card text-center mb-3">
+                            <div class="card-body">
+                                <h3 class="card-title">{{ recent_notifications|length }}</h3>
+                                <p class="card-text">Recent Notifications</p>
+                                <a href="#notification-history" class="btn btn-sm btn-outline-primary">View History</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if not telegram_configs %}
+                    <div class="alert alert-warning">
+                        <strong>Setup Required:</strong> Configure Telegram bot to enable notifications. 
+                        <a href="{{ url_for('main.admin_telegram') }}">Go to Telegram Configuration</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4" id="subscriptions">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">Active Subscriptions</h5>
+            </div>
+            <div class="card-body">
+                {% if active_subscriptions %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Subscription Name</th>
+                                    <th>User</th>
+                                    <th>Filters</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for subscription in active_subscriptions %}
+                                    <tr>
+                                        <td>{{ subscription.subscription_name }}</td>
+                                        <td>{{ subscription.user_id }}</td>
+                                        <td>
+                                            <small>
+                                                {% for key, value in subscription.search_filters.items() %}
+                                                    <span class="badge bg-secondary">{{ key }}: {{ value }}</span>
+                                                {% endfor %}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if subscription.is_active else 'secondary' }}">
+                                                {{ "Active" if subscription.is_active else "Inactive" }}
+                                            </span>
+                                        </td>
+                                         <td>
+                                            <button class="btn btn-sm btn-outline-danger delete-subscription"
+                                                    data-subscription-id="{{ subscription.id }}">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No active subscriptions found.</p>
+                    <p>Users can create subscriptions from the search page.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4" id="notification-history">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">Recent Notification History</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_notifications %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Listing ID</th>
+                                    <th>Subscription</th>
+                                    <th>Status</th>
+                                    <th>Message ID</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for notification in recent_notifications %}
+                                    <tr>
+                                        <td>{{ notification.notification_sent_at }}</td>
+                                        <td>{{ notification.listing_id }}</td>
+                                        <td>{{ notification.subscription_id }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if notification.is_successful else 'danger' }}">
+                                                {{ "Success" if notification.is_successful else "Failed" }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if notification.telegram_message_id %}
+                                                {{ notification.telegram_message_id }}
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No recent notifications found.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">How Notifications Work</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-telegram display-4 text-primary"></i>
+                            </div>
+                            <h5>Step 1: Configure Telegram</h5>
+                            <p>Set up your Telegram bot token in the configuration section.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-bell display-4 text-success"></i>
+                            </div>
+                            <h5>Step 2: Create Subscriptions</h5>
+                            <p>Users create subscriptions from the search page with their desired filters.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-send display-4 text-info"></i>
+                            </div>
+                            <h5>Step 3: Receive Alerts</h5>
+                            <p>Get instant Telegram notifications when new properties match your criteria.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">Notification Features</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success"></i> 
+                                Real-time alerts for new properties
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-filter text-primary"></i> 
+                                Customizable search filters
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-telegram text-info"></i> 
+                                Direct Telegram integration
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <i class="bi bi-shield-check text-success"></i> 
+                                No duplicate notifications
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-clock text-warning"></i> 
+                                Notification history tracking
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-gear text-secondary"></i> 
+                                Easy management interface
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+// Handle delete subscription button clicks
+$(document).ready(function() {
+    $('.delete-subscription').click(function() {
+        const subscriptionId = $(this).data('subscription-id');
+        const button = $(this);
+        
+        if (confirm('Are you sure you want to delete this notification subscription?')) {
+            // Show loading state
+            button.html('<i class="bi bi-hourglass-split"></i> Deleting...').prop('disabled', true);
+            
+            // Send delete request
+            $.post('/admin/notifications/delete/' + subscriptionId, {
+                confirm: 'true'
+            })
+            .done(function(response) {
+                // Reload the page to see the updated list
+                window.location.reload();
+            })
+            .fail(function(xhr, status, error) {
+                alert('Error deleting subscription: ' + error);
+                button.html('<i class="bi bi-trash"></i> Delete').prop('disabled', false);
+            });
+        }
+    });
+});
+</script>
+{% endblock %}
