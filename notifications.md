@@ -423,3 +423,10 @@ Addendum:
 - be sure to move the "import" statements at the top of the files
 - check whether this plan is at least partially implemented
 - the telegram admin page should ask for chat id in the form when creating a telegram configuration
+
+----------------
+Addendum 2:
+- telegram bot configuration form in admin/telegram should be in a card
+- Current Configurations card and Next Steps card in admin/telegram should be on the right at the same level of the telegram bot configuration card
+- remove the "how it works" section in /properties ui, make the "Notifications Dashboard" link a button on the right of the "enable notification for this search"
+

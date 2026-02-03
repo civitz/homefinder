@@ -9,7 +9,7 @@
         <p class="lead">Configure Telegram bot for property notifications.</p>
                      </div>
                  </div>
-                 
+                  
                  <div class="alert alert-info mb-4">
                      <h5>How to get your Telegram Chat ID:</h5>
                      <ol>
@@ -20,96 +20,55 @@
                      </ol>
                  </div>
                  
-                 <form method="POST" action="{{ url_for('main.admin_telegram') }}">
-                    <div class="mb-3">
-                        <label for="bot_token" class="form-label">Bot Token</label>
-                        <input type="text" class="form-control" id="bot_token" name="bot_token" 
-                               placeholder="123456789:ABCdefGHIjklMNOPQRsTUVwxyZ" required>
-                        <div class="form-text">Your Telegram bot API token from @BotFather</div>
+                 <div class="row">
+                     <div class="col-md-8">
+                         <div class="card">
+                             <div class="card-header bg-primary text-white">
+                                 <h5 class="card-title mb-0">Telegram Bot Configuration</h5>
+                             </div>
+                             <div class="card-body">
+                                 <form method="POST" action="{{ url_for('main.admin_telegram') }}">
+                                    <div class="mb-3">
+                                        <label for="bot_token" class="form-label">Bot Token</label>
+                                        <input type="text" class="form-control" id="bot_token" name="bot_token" 
+                                               placeholder="123456789:ABCdefGHIjklMNOPQRsTUVwxyZ" required>
+                                        <div class="form-text">Your Telegram bot API token from @BotFather</div>
+                                    </div>
+                                     
+                                     <div class="mb-3">
+                                         <label for="bot_name" class="form-label">Bot Name</label>
+                                         <input type="text" class="form-control" id="bot_name" name="bot_name" 
+                                                placeholder="HomeFinder Bot" value="HomeFinder Bot">
+                                         <div class="form-text">Friendly name for your bot</div>
+                                     </div>
+ 
+                                     <div class="mb-3">
+                                         <label for="chat_id" class="form-label">Chat ID</label>
+                                         <input type="text" class="form-control" id="chat_id" name="chat_id" 
+                                                placeholder="123456789" required>
+                                         <div class="form-text">Your Telegram chat ID (get it from @userinfobot or @getidsbot)</div>
+                                     </div>
+                                     
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active" checked>
+                                        <label class="form-check-label" for="is_active">Enable notifications</label>
+                                        <div class="form-text">Enable or disable Telegram notifications</div>
+                                    </div>
+                                     
+                                     <button type="submit" class="btn btn-primary btn-lg">
+                                         <i class="bi bi-save"></i> Save Configuration
+                                     </button>
+                                      
+                                     <button type="button" class="btn btn-secondary btn-lg ms-2" 
+                                             data-bs-toggle="modal" data-bs-target="#testNotificationModal">
+                                         <i class="bi bi-send"></i> Test Notification
+                                     </button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
-                    
-                     <div class="mb-3">
-                         <label for="bot_name" class="form-label">Bot Name</label>
-                         <input type="text" class="form-control" id="bot_name" name="bot_name" 
-                                placeholder="HomeFinder Bot" value="HomeFinder Bot">
-                         <div class="form-text">Friendly name for your bot</div>
-                     </div>
-
-                     <div class="mb-3">
-                         <label for="chat_id" class="form-label">Chat ID</label>
-                         <input type="text" class="form-control" id="chat_id" name="chat_id" 
-                                placeholder="123456789" required>
-                         <div class="form-text">Your Telegram chat ID (get it from @userinfobot or @getidsbot)</div>
-                     </div>
-                    
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active" checked>
-                        <label class="form-check-label" for="is_active">Enable notifications</label>
-                        <div class="form-text">Enable or disable Telegram notifications</div>
-                    </div>
-                    
-                     <button type="submit" class="btn btn-primary btn-lg">
-                         <i class="bi bi-save"></i> Save Configuration
-                     </button>
                      
-                     <button type="button" class="btn btn-secondary btn-lg ms-2" 
-                             data-bs-toggle="modal" data-bs-target="#testNotificationModal">
-                         <i class="bi bi-send"></i> Test Notification
-                     </button>
-                </form>
-             </div>
-         </div>
-     </div>
-     
-     <!-- Test Notification Modal -->
-     <div class="modal fade" id="testNotificationModal" tabindex="-1" aria-labelledby="testNotificationModalLabel" aria-hidden="true">
-         <div class="modal-dialog">
-             <div class="modal-content">
-                 <div class="modal-header">
-                     <h5 class="modal-title" id="testNotificationModalLabel">Send Test Notification</h5>
-                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                 </div>
-                 <div class="modal-body">
-                     <form id="testNotificationForm" method="POST" action="{{ url_for('main.admin_telegram_test') }}">
-                         <div class="mb-3">
-                             <label for="testBotToken" class="form-label">Bot Token</label>
-                             <input type="text" class="form-control" id="testBotToken" name="bot_token" 
-                                    placeholder="123456789:ABCdefGHIjklMNOPQRsTUVwxyZ" required>
-                             <div class="form-text">Your Telegram bot API token</div>
-                         </div>
-                         
-                         <div class="mb-3">
-                             <label for="testChatId" class="form-label">Chat ID</label>
-                             <input type="text" class="form-control" id="testChatId" name="chat_id" 
-                                    placeholder="123456789" required>
-                             <div class="form-text">Your Telegram chat ID</div>
-                         </div>
-                         
-                         <div class="mb-3">
-                             <label for="testMessage" class="form-label">Test Message</label>
-                             <textarea class="form-control" id="testMessage" name="message" rows="3" required>
-🏠 *HomeFinder Test Notification* 🏠
-
-This is a test notification to verify your Telegram bot configuration is working correctly.
-                             </textarea>
-                         </div>
-                         
-                         <div class="alert alert-info">
-                             <strong>Note:</strong> This will send an actual Telegram message to the specified chat ID.
-                         </div>
-                     </form>
-                 </div>
-                 <div class="modal-footer">
-                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                     <button type="submit" form="testNotificationForm" class="btn btn-primary">
-                         <i class="bi bi-send"></i> Send Test Notification
-                     </button>
-                 </div>
-             </div>
-         </div>
-     </div>
-     
-     <div class="col-md-4">
+                     <div class="col-md-4">
         <div class="card">
             <div class="card-header bg-info text-white">
                 <h5 class="card-title mb-0">Current Configurations</h5>

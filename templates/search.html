@@ -241,21 +241,16 @@
                                     <input type="hidden" name="{{ key }}" value="{{ value }}">
                                 {% endfor %}
                                 
-                                <button type="submit" class="btn btn-primary btn-lg" id="enableNotificationsBtn">
-                                    <i class="bi bi-bell"></i> Enable Notifications for This Search
-                                </button>
-                            </form>
-                            
-                            <div id="notificationResult" class="mt-3"></div>
-                            
-                            <div class="mt-4">
-                                <h6>How it works:</h6>
-                                <ul>
-                                    <li>You'll receive Telegram notifications when new properties match your search</li>
-                                    <li>Notifications are sent instantly when new listings are found</li>
-                                    <li>You can manage your subscriptions in the <a href="{{ url_for('main.admin_notifications') }}">Notifications Dashboard</a></li>
-                                </ul>
-                            </div>
+                             <div class="d-flex gap-2">
+                                 <button type="submit" class="btn btn-primary btn-lg" id="enableNotificationsBtn">
+                                     <i class="bi bi-bell"></i> Enable Notifications for This Search
+                                 </button>
+                                 <a href="{{ url_for('main.admin_notifications') }}" class="btn btn-outline-primary btn-lg align-self-center">
+                                     <i class="bi bi-view-list"></i> Notifications Dashboard
+                                 </a>
+                             </div>
+                              
+                             <div id="notificationResult" class="mt-3"></div>
                         {% else %}
                             <div class="alert alert-warning mb-3">
                                 <i class="bi bi-exclamation-triangle"></i> Telegram notifications are not configured.
