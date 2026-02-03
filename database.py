@@ -1349,6 +1349,46 @@ class DatabaseManager:
             self.logger.error(f"Error fetching active notification subscriptions: {e}")
             return []
 
+    def get_notification_subscriptions_by_user(self, user_id: str) -> List[NotificationSubscription]:
+        """Get notification subscriptions for a specific user."""
+        try:
+            # Ensure notification tables exist
+            self._ensure_notification_tables_exist()
+            
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, user_id, subscription_name, search_filters, 
+                           telegram_config_id, is_active, created_at, updated_at 
+                    FROM notification_subscriptions 
+                    WHERE user_id = ? 
+                    ORDER BY created_at DESC
+                ''', (user_id,))
+                rows = cursor.fetchall()
+                
+                subscriptions = []
+                for row in rows:
+                    # Parse search_filters from JSON
+                    import json
+                    search_filters = json.loads(row[3]) if row[3] else {}
+                    
+                    subscriptions.append(NotificationSubscription(
+                        id=row[0],
+                        user_id=row[1],
+                        subscription_name=row[2],
+                        search_filters=search_filters,
+                        telegram_config_id=row[4],
+                        is_active=bool(row[5]),
+                        created_at=row[6],
+                        updated_at=row[7]
+                    ))
+                
+                return subscriptions
+                
+        except Exception as e:
+            self.logger.error(f"Error fetching notification subscriptions for user {user_id}: {e}")
+            return []
+
     def delete_notification_subscription(self, subscription_id: int) -> bool:
         """Delete notification subscription by ID."""
         try:
