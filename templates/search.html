@@ -241,16 +241,18 @@
                                     <input type="hidden" name="{{ key }}" value="{{ value }}">
                                 {% endfor %}
                                 
-                             <div class="d-flex gap-2">
-                                 <button type="submit" class="btn btn-primary btn-lg" id="enableNotificationsBtn">
-                                     <i class="bi bi-bell"></i> Enable Notifications for This Search
-                                 </button>
-                                 <a href="{{ url_for('main.admin_notifications') }}" class="btn btn-outline-primary btn-lg align-self-center">
-                                     <i class="bi bi-view-list"></i> Notifications Dashboard
-                                 </a>
-                             </div>
-                              
-                             <div id="notificationResult" class="mt-3"></div>
+                              <div class="d-flex gap-2">
+                                  <button type="submit" class="btn btn-primary btn-lg" id="enableNotificationsBtn">
+                                      <span id="buttonIcon"><i class="bi bi-bell"></i></span>
+                                      <span id="buttonText">Enable Notifications for This Search</span>
+                                      <span id="buttonSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                  </button>
+                                  <a href="{{ url_for('main.admin_notifications') }}" class="btn btn-outline-primary btn-lg align-self-center">
+                                      <i class="bi bi-view-list"></i> Notifications Dashboard
+                                  </a>
+                              </div>
+                                
+                              <div id="notificationResult" class="mt-3"></div>
                         {% else %}
                             <div class="alert alert-warning mb-3">
                                 <i class="bi bi-exclamation-triangle"></i> Telegram notifications are not configured.
@@ -271,55 +273,84 @@
  </div>
  {% endblock %}
  
- {% block scripts %}
- {{ super() }}
- <script>
- // Notification subscription functionality
- $(document).ready(function() {
-     // Handle notification form submission
-     $('#notificationForm').submit(function(e) {
-         e.preventDefault();
-         
-         var form = $(this);
-         var button = $('#enableNotificationsBtn');
-         var resultDiv = $('#notificationResult');
-         
-         button.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Processing...');
-         resultDiv.html('');
-         
-         $.post(form.attr('action'), form.serialize(), function(response) {
-             if (response.success) {
-                 resultDiv.html('' +
-                     '<div class="alert alert-success">' +
-                     '<i class="bi bi-check-circle"></i> ' + response.message +
-                     '</div>'
-                 );
-                 
-                 if (response.test_sent) {
-                     resultDiv.append('' +
-                         '<div class="alert alert-info mt-2">' +
-                         '<i class="bi bi-info-circle"></i> Test notification sent successfully!' +
-                         '</div>'
-                     );
-                 }
-             } else {
-                 resultDiv.html('' +
-                     '<div class="alert alert-danger">' +
-                     '<i class="bi bi-exclamation-triangle"></i> ' + response.error +
-                     '</div>'
-                 );
-             }
-             
-             button.prop('disabled', false).html('<i class="bi bi-bell"></i> Enable Notifications for This Search');
-         }).fail(function(xhr, status, error) {
-             resultDiv.html('' +
-                 '<div class="alert alert-danger">' +
-                 '<i class="bi bi-exclamation-triangle"></i> Error: ' + error +
-                 '</div>'
-             );
-             button.prop('disabled', false).html('<i class="bi bi-bell"></i> Enable Notifications for This Search');
-         });
-     });
- });
- </script>
- {% endblock %}
+  {% block scripts %}
+  {{ super() }}
+  <script>
+  // Notification subscription functionality
+  $(document).ready(function() {
+      // Handle notification form submission
+      $('#notificationForm').submit(function(e) {
+          e.preventDefault();
+          
+          var form = $(this);
+          var button = $('#enableNotificationsBtn');
+          var buttonIcon = $('#buttonIcon');
+          var buttonText = $('#buttonText');
+          var buttonSpinner = $('#buttonSpinner');
+          var resultDiv = $('#notificationResult');
+          
+          // Show loading state
+          button.prop('disabled', true);
+          buttonIcon.hide();
+          buttonText.text('Processing...');
+          buttonSpinner.removeClass('d-none');
+          resultDiv.html('');
+          
+          $.post(form.attr('action'), form.serialize(), function(response) {
+              if (response.success) {
+                  // Show success toast
+                  showToast('Success!', response.message, 'success');
+                  
+                  if (response.test_sent) {
+                      showToast('Test Sent', 'Test notification sent successfully!', 'info');
+                  }
+              } else {
+                  // Show error toast
+                  showToast('Error', response.error, 'danger');
+              }
+              
+              // Reset button state
+              button.prop('disabled', false);
+              buttonIcon.show();
+              buttonText.text('Enable Notifications for This Search');
+              buttonSpinner.addClass('d-none');
+              
+          }).fail(function(xhr, status, error) {
+              // Show error toast
+              showToast('Error', 'Failed to enable notifications: ' + error, 'danger');
+              
+              // Reset button state
+              button.prop('disabled', false);
+              buttonIcon.show();
+              buttonText.text('Enable Notifications for This Search');
+              buttonSpinner.addClass('d-none');
+          });
+      });
+  });
+  
+  // Function to show toast notifications
+  function showToast(title, message, type) {
+      var toastContainer = $('#toastContainer');
+      
+       // Create toast element
+       var toastId = 'toast-' + Date.now();
+       var toastHtml = '<div id="' + toastId + '" class="toast align-items-center text-white bg-' + type + ' border-0" role="alert" aria-live="assertive" aria-atomic="true"><div class="d-flex"><div class="toast-body"><strong>' + title + '</strong><p class="mb-0">' + message + '</p></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div></div>';
+      
+      // Add toast to container
+      toastContainer.append(toastHtml);
+      
+      // Initialize and show toast
+      var toastElement = $('#' + toastId);
+      var toast = new bootstrap.Toast(toastElement, {
+          autohide: true,
+          delay: 5000
+      });
+      toast.show();
+      
+      // Remove toast after it's hidden
+      toastElement.on('hidden.bs.toast', function() {
+          toastElement.remove();
+      });
+  }
+  </script>
+  {% endblock %}

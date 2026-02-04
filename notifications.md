@@ -430,3 +430,9 @@ Addendum 2:
 - Current Configurations card and Next Steps card in admin/telegram should be on the right at the same level of the telegram bot configuration card
 - remove the "how it works" section in /properties ui, make the "Notifications Dashboard" link a button on the right of the "enable notification for this search"
 
+----------------
+Addendum 3:
+- the "Enable Notifications for This Search" button should perform the POST action on the same page via an AJAX call
+- when clicking on the AJAX call, we should see a spinner on the button while the button is disabled
+- when the POST call is done, a toast message should be displayed on the top of the screen with either a green checkmark o a red cross depending on the result of the call.
+

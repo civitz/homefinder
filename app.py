@@ -7,7 +7,7 @@ import os
 
 def create_app():
     """Create and configure Flask application."""
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder='static')
     
     # Configure Flask
     app.secret_key = FLASK_SECRET_KEY
@@ -20,7 +20,7 @@ def create_app():
     from views.main_views import main_bp
     from views.property_views import property_bp
     from views.api_views import api_bp
-    
+
     app.register_blueprint(main_bp)
     app.register_blueprint(property_bp, url_prefix='/properties')
     app.register_blueprint(api_bp, url_prefix='/api')
