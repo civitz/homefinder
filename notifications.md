@@ -436,3 +436,14 @@ Addendum 3:
 - when clicking on the AJAX call, we should see a spinner on the button while the button is disabled
 - when the POST call is done, a toast message should be displayed on the top of the screen with either a green checkmark o a red cross depending on the result of the call.
 
+---------------
+Addendum 4:
+The current implementation of the notification service has multiple problems:
+- there is a periodic log of "Ensured notification tables exist" multiple times in a row, there is probably a loop or a function that should be called once on startup and instead is being called on a regular basis
+- no matter the query of the subscription, the service always says "No matching subscriptions found for new listings"
+- the subscription page has a useless "user" column, which can be ignored in the UI
+- the subscription should keep track of which matching property it has already notified
+- when creating a subscription, it should check also for already known properties which match the filter and has not be notified to the subscription
+- it should send a telegram message for each matching property of a subscription
+- the subscription name should be part of the message
+- the debug log should contain the expected telegram message text
