@@ -85,7 +85,7 @@ class DatabaseManager:
                         updated_at TEXT NOT NULL
                   )
                   ''')
-                 
+                  
                  # Create raw_html_pages table
                 cursor.execute('''
                      CREATE TABLE IF NOT EXISTS raw_html_pages (
@@ -99,7 +99,7 @@ class DatabaseManager:
                          FOREIGN KEY (agency_id) REFERENCES agencies(id)
                      )
                  ''')
-                 
+                  
                  # Create listings table (updated to use agency_id instead of agency)
                 cursor.execute('''
                        CREATE TABLE IF NOT EXISTS listings (
@@ -140,14 +140,14 @@ class DatabaseManager:
                             FOREIGN KEY (raw_html_page_id) REFERENCES raw_html_pages(id)
                        )
                  ''')
-                 
+                  
                 # Create indexes for better search performance
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_city ON listings(city)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_price ON listings(price)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_contract ON listings(contract_type)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_square_meters ON listings(square_meters)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_agency ON listings(agency_id)')
-                 
+                  
                  # Create scrape_history table
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS scrape_history (
@@ -158,9 +158,12 @@ class DatabaseManager:
                         duration_seconds REAL
                     )
                 ''')
-
+                
+                # Initialize notification tables
+                self._ensure_notification_tables_exist()
+                
                 conn.commit()
-               
+                
         except sqlite3.Error as e:
             self.logger.error(f"Database initialization error: {e}")
             raise
@@ -761,43 +764,102 @@ class DatabaseManager:
             self.logger.error(f"Error fetching all listings: {e}")
             return []
     
+    def get_listings_since(self, timestamp: str) -> List[Listing]:
+        """Get listings added or modified since a specific timestamp."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT * FROM listings 
+                    WHERE creation_date >= ? 
+                    ORDER BY creation_date ASC
+                ''', (timestamp,))
+                rows = cursor.fetchall()
+                
+                return [self._row_to_listing(row) for row in rows]
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching listings since {timestamp}: {e}")
+            return []
+    
     def _row_to_listing(self, row: tuple) -> Listing:
         """Convert database row to Listing object."""
-        # Map row to listing fields
-        listing_data = {
-               'id': row[0],
-               'title': row[1],
-               'url': row[2],
-              'description': row[3],
-              'contract_type': row[4],
-              'price': row[5],
-              'city': row[6],
-              'neighborhood': row[7],
-              'address': row[8],
-              'rooms': row[9],
-              'bedrooms': row[10],
-              'bathrooms': row[11],
-              'square_meters': row[12],
-              'floor': row[13],
-              'year_built': row[14],
-              'has_elevator': row[15],
-              'heating': row[16],
-              'has_air_conditioning': row[17],
-              'has_garage': row[18],
-              'is_furnished': row[19],
-              'energy_class': row[20],
-              'energy_consumption': row[21],
-              'features': row[22],
-              'scrape_date': row[23],
-              'publication_date': row[24],
-              'raw_html_file': row[25],
-               'agency_listing_id': row[26],
-               'modify_date': row[27],
-               'creation_date': row[28],
-               'last_verified_date': row[29],
-               'is_broken': row[30],
-               'agency_id': row[31]
-          }
+        # Determine the schema version based on row length
+        # Real database (production): 32 columns, agency_id is at index 28
+        # New database (tests): 33 columns, agency_id is at index 2
+        if len(row) >= 33:
+            # New schema: 33 columns
+            listing_data = {
+                   'id': row[0],
+                   'title': row[1],
+                   'agency_id': row[2],
+                   'url': row[3],
+                  'description': row[4],
+                  'contract_type': row[5],
+                  'price': row[6],
+                  'city': row[7],
+                  'neighborhood': row[8],
+                  'address': row[9],
+                  'rooms': row[10],
+                  'bedrooms': row[11],
+                  'bathrooms': row[12],
+                  'square_meters': row[13],
+                  'floor': row[14],
+                  'year_built': row[15],
+                  'has_elevator': row[16],
+                  'heating': row[17],
+                  'has_air_conditioning': row[18],
+                  'has_garage': row[19],
+                  'is_furnished': row[20],
+                  'energy_class': row[21],
+                  'energy_consumption': row[22],
+                  'features': row[23],
+                  'scrape_date': row[24],
+                  'publication_date': row[25],
+                  'raw_html_file': row[26],
+                   'agency_listing_id': row[27],
+                   'modify_date': row[28],
+                   'creation_date': row[29],
+                   'last_verified_date': row[30],
+                   'is_broken': row[31],
+                   'raw_html_page_id': row[32]
+              }
+        else:
+            # Old schema: 32 columns (real database)
+            listing_data = {
+                   'id': row[0],
+                   'title': row[1],
+                   'url': row[2],
+                  'description': row[3],
+                  'contract_type': row[4],
+                  'price': row[5],
+                  'city': row[6],
+                  'neighborhood': row[7],
+                  'address': row[8],
+                  'rooms': row[9],
+                  'bedrooms': row[10],
+                  'bathrooms': row[11],
+                  'square_meters': row[12],
+                  'floor': row[13],
+                  'year_built': row[14],
+                  'has_elevator': row[15],
+                  'heating': row[16],
+                  'has_air_conditioning': row[17],
+                  'has_garage': row[18],
+                  'is_furnished': row[19],
+                  'energy_class': row[20],
+                  'energy_consumption': row[21],
+                  'features': row[22],
+                  'scrape_date': row[23],
+                  'publication_date': row[24],
+                  'raw_html_file': row[25],
+                   'agency_listing_id': row[26],
+                   'modify_date': row[27],
+                   'agency_id': row[28],
+                   'creation_date': row[29],
+                   'last_verified_date': row[30],
+                   'is_broken': row[31]
+              }
         
         # Convert features from string back to list
         if listing_data['features']:
@@ -1127,8 +1189,6 @@ class DatabaseManager:
     def save_telegram_config(self, config: TelegramConfiguration) -> int:
         """Save Telegram configuration to database."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1190,8 +1250,6 @@ class DatabaseManager:
     def get_all_telegram_configs(self) -> List[TelegramConfiguration]:
         """Get all Telegram configurations."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1223,8 +1281,6 @@ class DatabaseManager:
     def get_active_telegram_configs(self) -> List[TelegramConfiguration]:
         """Get all active Telegram configurations."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1257,8 +1313,6 @@ class DatabaseManager:
     def get_telegram_config_by_id(self, config_id: int) -> Optional[TelegramConfiguration]:
         """Get Telegram configuration by ID."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1289,8 +1343,6 @@ class DatabaseManager:
     def delete_telegram_config(self, config_id: int) -> bool:
         """Delete Telegram configuration by ID."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1312,8 +1364,6 @@ class DatabaseManager:
     def get_active_notification_subscriptions(self) -> List[NotificationSubscription]:
         """Get all active notification subscriptions."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1352,8 +1402,6 @@ class DatabaseManager:
     def get_notification_subscriptions_by_user(self, user_id: str) -> List[NotificationSubscription]:
         """Get notification subscriptions for a specific user."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1392,8 +1440,6 @@ class DatabaseManager:
     def delete_notification_subscription(self, subscription_id: int) -> bool:
         """Delete notification subscription by ID."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1414,9 +1460,6 @@ class DatabaseManager:
     def save_notification_subscription(self, subscription: NotificationSubscription) -> int:
         """Save notification subscription to database."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 
@@ -1438,7 +1481,7 @@ class DatabaseManager:
                             updated_at = ?
                         WHERE id = ?
                     '''
-                    
+                     
                     cursor.execute(update_query, (
                         subscription.user_id,
                         subscription.subscription_name,
@@ -1448,7 +1491,7 @@ class DatabaseManager:
                         now,
                         subscription.id
                     ))
-                    
+                     
                     self.logger.info(f"Updated notification subscription: {subscription.subscription_name}")
                     conn.commit()
                     return subscription.id
@@ -1460,7 +1503,7 @@ class DatabaseManager:
                              telegram_config_id, is_active, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
                     '''
-                    
+                     
                     cursor.execute(insert_query, (
                         subscription.user_id,
                         subscription.subscription_name,
@@ -1470,21 +1513,153 @@ class DatabaseManager:
                         now,
                         now
                     ))
-                    
+                     
                     subscription_id = cursor.lastrowid or -1
                     self.logger.info(f"Inserted new notification subscription: {subscription.subscription_name} (ID: {subscription_id})")
                     conn.commit()
-                    return subscription_id
                     
+                    # Check for existing properties that match the subscription filters
+                    # and haven't been notified to this subscription yet
+                    if subscription.search_filters:
+                        self._check_existing_properties_for_subscription(subscription_id, subscription.search_filters)
+                    
+                    return subscription_id
+                     
         except sqlite3.Error as e:
             self.logger.error(f"Error saving notification subscription: {e}")
             return -1
+    
+    def _check_existing_properties_for_subscription(self, subscription_id: int, search_filters: Optional[Dict[str, Any]]) -> None:
+        """Check for existing properties that match the subscription and log notifications if needed."""
+        try:
+            # Get the subscription to access telegram_config_id
+            subscription = self.get_notification_subscription_by_id(subscription_id)
+            if not subscription:
+                self.logger.warning(f"Subscription {subscription_id} not found")
+                return
+            
+            # Get all listings that match the search filters
+            if search_filters:
+                matching_listings = self._find_listings_matching_filters(search_filters)
+            else:
+                matching_listings = self.get_all_listings()
+            
+            if not matching_listings:
+                self.logger.info(f"No existing listings match subscription {subscription_id} filters")
+                return
+            
+            # Check which listings haven't been notified to this subscription yet
+            listings_to_notify = []
+            for listing in matching_listings:
+                # Check if this listing has already been notified to this subscription
+                if listing.id is not None:
+                    notification_count = self._get_notification_count_for_listing_subscription(
+                        listing.id, subscription_id
+                    )
+                    if notification_count == 0:
+                        listings_to_notify.append(listing)
+            
+            if listings_to_notify:
+                self.logger.info(f"Found {len(listings_to_notify)} existing listings to notify for subscription {subscription_id}")
+                
+                # Log notifications for these listings (they will be sent by the notification service)
+                for listing in listings_to_notify:
+                    if listing.id is not None:
+                        self.log_notification(
+                            listing.id,
+                            subscription_id,
+                            telegram_message_id=None,  # Will be updated when actually sent
+                            is_successful=False,  # Mark as not yet sent
+                            error_message="Pending notification for existing property"
+                        )
+                
+                self.logger.info(f"Queued {len(listings_to_notify)} notifications for existing matching properties")
+            else:
+                self.logger.info(f"All matching existing listings have already been notified for subscription {subscription_id}")
+                
+        except Exception as e:
+            self.logger.error(f"Error checking existing properties for subscription {subscription_id}: {e}")
+    
+    def _find_listings_matching_filters(self, search_filters: Optional[Dict[str, Any]]) -> List[Listing]:
+        """Find listings that match the given search filters."""
+        try:
+            if not search_filters:
+                # No filters means match all listings
+                return self.get_all_listings()
+            
+            # Build a dynamic query based on the filters
+            query = 'SELECT * FROM listings WHERE 1=1'
+            params = []
+            
+            # Add filter conditions - only if value is not None
+            if 'city' in search_filters and search_filters['city'] is not None:
+                # Handle both None and string 'None' cases
+                city_value = search_filters['city']
+                if city_value != 'None' and city_value != '':
+                    query += ' AND city = ?'
+                    params.append(city_value)
+            
+            if 'contract_type' in search_filters and search_filters['contract_type'] is not None:
+                # Handle both None and string 'None' cases
+                contract_type_value = search_filters['contract_type']
+                if contract_type_value != 'None' and contract_type_value != '':
+                    query += ' AND contract_type = ?'
+                    # Normalize contract type to lowercase for comparison (enum values are lowercase)
+                    contract_type_filter = str(contract_type_value).lower()
+                    params.append(contract_type_filter)
+            
+            if 'min_price' in search_filters and search_filters['min_price'] is not None:
+                # Handle both None and string 'None' cases
+                min_price_value = search_filters['min_price']
+                if min_price_value != 'None' and min_price_value != '':
+                    query += ' AND price >= ?'
+                    params.append(float(min_price_value))
+            
+            if 'max_price' in search_filters and search_filters['max_price'] is not None:
+                # Handle both None and string 'None' cases
+                max_price_value = search_filters['max_price']
+                if max_price_value != 'None' and max_price_value != '':
+                    query += ' AND price <= ?'
+                    params.append(float(max_price_value))
+            
+            if 'min_size' in search_filters and search_filters['min_size'] is not None:
+                # Handle both None and string 'None' cases
+                min_size_value = search_filters['min_size']
+                if min_size_value != 'None' and min_size_value != '':
+                    query += ' AND square_meters >= ?'
+                    params.append(int(min_size_value))
+            
+            # Execute the query
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                
+                return [self._row_to_listing(row) for row in rows]
+                
+        except Exception as e:
+            self.logger.error(f"Error finding listings matching filters: {e}")
+            return []
+    
+    def _get_notification_count_for_listing_subscription(self, listing_id: int, subscription_id: int) -> int:
+        """Get the number of notifications sent for a specific listing and subscription."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT COUNT(*) FROM notification_history 
+                    WHERE listing_id = ? AND subscription_id = ?
+                ''', (listing_id, subscription_id))
+                count = cursor.fetchone()[0]
+                return count or 0
+                
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting notification count for listing {listing_id}, subscription {subscription_id}: {e}")
+            return 0
 
     def get_notification_subscription_by_id(self, subscription_id: int) -> Optional[NotificationSubscription]:
         """Get notification subscription by ID."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1522,8 +1697,6 @@ class DatabaseManager:
                         is_successful: bool, error_message: Optional[str] = None) -> int:
         """Log a notification to the notification history."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1585,8 +1758,6 @@ class DatabaseManager:
     def get_notification_count_for_listing(self, listing_id: int) -> int:
         """Get the number of notifications sent for a listing."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1604,8 +1775,6 @@ class DatabaseManager:
     def get_notification_history_for_subscription(self, subscription_id: int) -> List[NotificationHistory]:
         """Get notification history for a specific subscription."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1640,8 +1809,6 @@ class DatabaseManager:
     def get_recent_notification_history(self, limit: int = 20) -> List[NotificationHistory]:
         """Get recent notification history."""
         try:
-            # Ensure notification tables exist
-            self._ensure_notification_tables_exist()
             
             with self._get_connection() as conn:
                 cursor = conn.cursor()

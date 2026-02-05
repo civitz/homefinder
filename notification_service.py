@@ -248,8 +248,21 @@ class NotificationEngine:
             for filter_key, filter_value in subscription.search_filters.items():
                 if filter_key == 'city' and listing_dict.get('city') != filter_value:
                     return False
-                elif filter_key == 'contract_type' and listing_dict.get('contract_type') != filter_value:
-                    return False
+                elif filter_key == 'contract_type':
+                    # Handle contract_type matching - convert string to enum if needed
+                    listing_contract = listing_dict.get('contract_type')
+                    if isinstance(listing_contract, str):
+                        # listing_contract is already a string, compare with case-insensitive matching
+                        if listing_contract.lower() != str(filter_value).lower():
+                            return False
+                    else:
+                        # listing_contract is an enum, convert to string for comparison
+                        if listing_contract is not None and hasattr(listing_contract, 'value'):
+                            if str(listing_contract.value).lower() != str(filter_value).lower():
+                                return False
+                        else:
+                            # If listing_contract is None or doesn't have value attribute, it doesn't match
+                            return False
                 elif filter_key == 'min_price' and listing_dict.get('price', 0) < filter_value:
                     return False
                 elif filter_key == 'max_price' and listing_dict.get('price', float('inf')) > filter_value:
@@ -274,7 +287,10 @@ class NotificationEngine:
             
             try:
                 # Format notification message
-                message = self._format_notification_message(listing)
+                message = self._format_notification_message(listing, subscription.subscription_name)
+                
+                # Log the expected message for debugging
+                self.logger.debug(f"Prepared Telegram notification message: {message[:100]}...")
                 
                 # Send notification
                 success = self.telegram_service.send_notification(
@@ -305,6 +321,7 @@ class NotificationEngine:
                 self.db_manager.log_notification(
                     listing.id or 0,
                     subscription.id or 0,
+                    telegram_message_id=None,
                     is_successful=False,
                     error_message=str(e)
                 )
@@ -343,12 +360,16 @@ class NotificationEngine:
         
         self.logger.info("Periodic notification check service stopped")
 
-    def _format_notification_message(self, listing: Listing) -> str:
+    def _format_notification_message(self, listing: Listing, subscription_name: str = "") -> str:
         """Format a notification message for a listing."""
         try:
             agency_name = listing.get_agency_name(self.db_manager)
             
             message = f"🏠 *New Property Alert* 🏠\n\n"
+            
+            if subscription_name:
+                message += f"🔔 *Subscription*: {subscription_name}\n"
+            
             message += f"📍 *{listing.title}*\n"
             message += f"🏢 *Agency*: {agency_name}\n"
             message += f"💰 *Price*: €{listing.price:,.0f}\n"
