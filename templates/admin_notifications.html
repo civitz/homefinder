@@ -88,40 +88,38 @@
                 {% if active_subscriptions %}
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Subscription Name</th>
-                                    <th>User</th>
-                                    <th>Filters</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
+                             <thead>
+                                 <tr>
+                                     <th>Subscription Name</th>
+                                     <th>Filters</th>
+                                     <th>Status</th>
+                                     <th>Actions</th>
+                                 </tr>
+                             </thead>
                             <tbody>
-                                {% for subscription in active_subscriptions %}
-                                    <tr>
-                                        <td>{{ subscription.subscription_name }}</td>
-                                        <td>{{ subscription.user_id }}</td>
-                                        <td>
-                                            <small>
-                                                {% for key, value in subscription.search_filters.items() %}
-                                                    <span class="badge bg-secondary">{{ key }}: {{ value }}</span>
-                                                {% endfor %}
-                                            </small>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-{{ 'success' if subscription.is_active else 'secondary' }}">
-                                                {{ "Active" if subscription.is_active else "Inactive" }}
-                                            </span>
-                                        </td>
+                                 {% for subscription in active_subscriptions %}
+                                     <tr>
+                                         <td>{{ subscription.subscription_name }}</td>
                                          <td>
-                                            <button class="btn btn-sm btn-outline-danger delete-subscription"
-                                                    data-subscription-id="{{ subscription.id }}">
-                                                <i class="bi bi-trash"></i> Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
+                                             <small>
+                                                 {% for key, value in subscription.search_filters.items() %}
+                                                     <span class="badge bg-secondary">{{ key }}: {{ value }}</span>
+                                                 {% endfor %}
+                                             </small>
+                                         </td>
+                                         <td>
+                                             <span class="badge bg-{{ 'success' if subscription.is_active else 'secondary' }}">
+                                                 {{ "Active" if subscription.is_active else "Inactive" }}
+                                             </span>
+                                         </td>
+                                          <td>
+                                             <button class="btn btn-sm btn-outline-danger delete-subscription"
+                                                     data-subscription-id="{{ subscription.id }}">
+                                                 <i class="bi bi-trash"></i> Delete
+                                             </button>
+                                         </td>
+                                     </tr>
+                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -154,25 +152,25 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for notification in recent_notifications %}
-                                    <tr>
-                                        <td>{{ notification.notification_sent_at }}</td>
-                                        <td>{{ notification.listing_id }}</td>
-                                        <td>{{ notification.subscription_id }}</td>
-                                        <td>
-                                            <span class="badge bg-{{ 'success' if notification.is_successful else 'danger' }}">
-                                                {{ "Success" if notification.is_successful else "Failed" }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {% if notification.telegram_message_id %}
-                                                {{ notification.telegram_message_id }}
-                                            {% else %}
-                                                <span class="text-muted">N/A</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
+                                 {% for notification in recent_notifications %}
+                                     <tr>
+                                         <td>{{ notification.notification_sent_at }}</td>
+                                          <td><a href="{{ url_for('properties.property_detail', property_id=notification.listing_id) }}">{{ notification.listing_id }}</a></td>
+                                         <td>{{ notification.subscription_name }}</td>
+                                         <td>
+                                             <span class="badge bg-{{ 'success' if notification.is_successful else 'danger' }}">
+                                                 {{ "Success" if notification.is_successful else "Failed" }}
+                                             </span>
+                                         </td>
+                                         <td>
+                                             {% if notification.telegram_message_id %}
+                                                 {{ notification.telegram_message_id }}
+                                             {% else %}
+                                                 <span class="text-muted">N/A</span>
+                                             {% endif %}
+                                         </td>
+                                     </tr>
+                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>

@@ -52,6 +52,7 @@ class NotificationHistory:
     id: Optional[int] = None
     listing_id: int = 0
     subscription_id: int = 0
+    subscription_name: str = ""
     notification_sent_at: str = ""
     telegram_message_id: Optional[str] = None
     is_successful: bool = False
@@ -1775,32 +1776,35 @@ class DatabaseManager:
     def get_notification_history_for_subscription(self, subscription_id: int) -> List[NotificationHistory]:
         """Get notification history for a specific subscription."""
         try:
-            
+             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    SELECT id, listing_id, subscription_id, notification_sent_at, 
-                           telegram_message_id, is_successful, error_message 
-                    FROM notification_history 
-                    WHERE subscription_id = ?
-                    ORDER BY notification_sent_at DESC
+                    SELECT nh.id, nh.listing_id, nh.subscription_id, ns.subscription_name, 
+                           nh.notification_sent_at, nh.telegram_message_id, 
+                           nh.is_successful, nh.error_message
+                    FROM notification_history nh
+                    LEFT JOIN notification_subscriptions ns ON nh.subscription_id = ns.id
+                    WHERE nh.subscription_id = ?
+                    ORDER BY nh.notification_sent_at DESC
                 ''', (subscription_id,))
                 rows = cursor.fetchall()
-                
+                 
                 history = []
                 for row in rows:
                     history.append(NotificationHistory(
                         id=row[0],
                         listing_id=row[1],
                         subscription_id=row[2],
-                        notification_sent_at=row[3],
-                        telegram_message_id=row[4],
-                        is_successful=bool(row[5]),
-                        error_message=row[6]
+                        subscription_name=row[3] or "",
+                        notification_sent_at=row[4],
+                        telegram_message_id=row[5],
+                        is_successful=bool(row[6]),
+                        error_message=row[7]
                     ))
-                
+                 
                 return history
-                
+                 
         except sqlite3.Error as e:
             self.logger.error(f"Error getting notification history for subscription {subscription_id}: {e}")
             return []
@@ -1809,32 +1813,35 @@ class DatabaseManager:
     def get_recent_notification_history(self, limit: int = 20) -> List[NotificationHistory]:
         """Get recent notification history."""
         try:
-            
+             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    SELECT id, listing_id, subscription_id, notification_sent_at, 
-                           telegram_message_id, is_successful, error_message 
-                    FROM notification_history 
-                    ORDER BY notification_sent_at DESC 
+                    SELECT nh.id, nh.listing_id, nh.subscription_id, ns.subscription_name, 
+                           nh.notification_sent_at, nh.telegram_message_id, 
+                           nh.is_successful, nh.error_message
+                    FROM notification_history nh
+                    LEFT JOIN notification_subscriptions ns ON nh.subscription_id = ns.id
+                    ORDER BY nh.notification_sent_at DESC 
                     LIMIT ?
                 ''', (limit,))
                 rows = cursor.fetchall()
-                
+                 
                 history = []
                 for row in rows:
                     history.append(NotificationHistory(
                         id=row[0],
                         listing_id=row[1],
                         subscription_id=row[2],
-                        notification_sent_at=row[3],
-                        telegram_message_id=row[4],
-                        is_successful=bool(row[5]),
-                        error_message=row[6]
+                        subscription_name=row[3] or "",
+                        notification_sent_at=row[4],
+                        telegram_message_id=row[5],
+                        is_successful=bool(row[6]),
+                        error_message=row[7]
                     ))
-                
+                 
                 return history
-                
+                 
         except sqlite3.Error as e:
             self.logger.error(f"Error getting recent notification history: {e}")
             return []
