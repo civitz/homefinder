@@ -45,6 +45,7 @@ def main(args=None):
     try:
         # Initialize components
         db_manager = DatabaseManager()
+        db_manager.initialize_database()
         
         # Determine request delay
         request_delay_ms = args.request_delay if args.request_delay is not None else None

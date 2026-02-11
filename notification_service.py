@@ -182,7 +182,7 @@ class NotificationEngine:
         try:
             # Get the timestamp of the last notification run
             last_run_time = self._get_last_notification_run_time()
-            
+            self.logger.debug(f"Checking notifications since {last_run_time}")
             # Check for new listings since last run
             new_listings = self.check_new_listings(last_run_time)
             if not new_listings:

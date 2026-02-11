@@ -65,9 +65,8 @@ class DatabaseManager:
     def __init__(self, db_path: Optional[Path] = None):
         self.db_path = db_path or DB_FILE
         self.logger = logging.getLogger(__name__)
-        self._initialize_database()
     
-    def _initialize_database(self) -> None:
+    def initialize_database(self) -> None:
         """Initialize database and create tables if they don't exist."""
         try:
             with self._get_connection() as conn:
