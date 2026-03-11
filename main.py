@@ -14,7 +14,7 @@ from datetime import datetime
 #sys.path.insert(0, str(project_root))
 
 from app import create_app
-from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR, DEBUG
+from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR, DEBUG, DRYRUN
 from scraper import TettorossoScraper, GalileoScraper, FakeScraper
 from database import DatabaseManager
 from background_scraper import BackgroundScraper
@@ -89,7 +89,7 @@ def main(args=None):
             logger.info("Broken link cleanup enabled")
 
         # Initialize notification service
-        telegram_service = TelegramService(db_manager, dry_run=DEBUG)
+        telegram_service = TelegramService(db_manager, dry_run=DRYRUN)
         notification_engine = NotificationEngine(db_manager, telegram_service)
         
         if args.no_notifications:

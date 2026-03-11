@@ -1,5 +1,5 @@
 from flask import Flask
-from config import FLASK_SECRET_KEY, FLASK_DEBUG, DEBUG
+from config import FLASK_SECRET_KEY, FLASK_DEBUG, DEBUG, DRYRUN
 import logging
 from logging.handlers import RotatingFileHandler
 import os

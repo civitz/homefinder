@@ -17,6 +17,7 @@ REQUEST_DELAY_MS: Final[int] = 2000  # Delay between requests in milliseconds
 
 # Debug configuration
 DEBUG: Final[bool] = os.getenv("DEBUG", "false").lower() == "true"
+DRYRUN: Final[bool] = os.getenv("DRYRUN", "false").lower() == "true"
 
 # Scraping interval configuration (in seconds)
 MIN_SCRAPE_INTERVAL_SECONDS: Final[int] = int(os.getenv("MIN_SCRAPE_INTERVAL_SECONDS", "3600"))  # Default: 1 hour
