@@ -7,16 +7,17 @@ name = "homefinder"
 version = "0.1.0"
 description = "Web scraping and property finding tool for real estate listings"
 authors = [{name = "Roberto", email = "roberto@example.com"}]
-requires-python = ">=3.8"
-license = {text = "MIT"}
+requires-python = ">=3.8.1"
+license = "MIT"
 
-[project.dependencies]
-beautifulsoup4 = ">=4.12.0"
-requests = ">=2.31.0"
-flask = ">=3.0.0"
-jinja2 = ">=3.1.0"
-python-dotenv = ">=1.0.0"
-typing-extensions = ">=4.0.0"
+dependencies = [
+    "beautifulsoup4>=4.12.0",
+    "requests>=2.31.0",
+    "flask>=3.0.0",
+    "jinja2>=3.1.0",
+    "python-dotenv>=1.0.0",
+    "typing-extensions>=4.0.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -28,4 +29,4 @@ dev = [
 ]
 
 [tool.setuptools]
-package-dir = {"" = "homefinder"}
+py-modules = ["homefinder", "database", "models", "config", "app", "main", "scraper", "notification_service", "background_scraper", "broken_link_cleaner", "example_utils"]

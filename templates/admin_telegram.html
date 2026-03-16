@@ -7,6 +7,7 @@
     <div class="col-md-12">
         <h1 class="display-4 mb-4">Telegram Configuration</h1>
         <p class="lead">Configure Telegram bot for property notifications.</p>
+        <div class="alert-container"></div>
         
         {% if current_config %}
         <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -77,10 +78,9 @@
                                           <i class="bi bi-save"></i> Save Configuration
                                       </button>
                                        
-                                      <button type="button" class="btn btn-secondary btn-lg ms-2" 
-                                              data-bs-toggle="modal" data-bs-target="#testNotificationModal">
-                                          <i class="bi bi-send"></i> Test Notification
-                                      </button>
+                                      <button type="button" class="btn btn-secondary btn-lg ms-2" id="testNotificationBtn">
+                                           <i class="bi bi-send"></i> Test Notification
+                                       </button>
                              </div>
                          </div>
                     </div>
@@ -189,6 +189,63 @@
 {% block scripts %}
 {{ super() }}
 <script>
-// Add any additional JavaScript if needed
+document.addEventListener('DOMContentLoaded', function() {
+    const testNotificationBtn = document.getElementById('testNotificationBtn');
+    
+    if (testNotificationBtn) {
+        testNotificationBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            fetch('/admin/telegram/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showFlashMessage(data.message, 'success');
+                } else {
+                    showFlashMessage(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showFlashMessage('Failed to send test notification. Check logs for details.', 'danger');
+            });
+        });
+    }
+    
+    function showFlashMessage(message, type) {
+        const alertContainer = document.querySelector('.alert-container');
+        
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            <strong>${type === 'success' ? 'Success' : 'Error'}:</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        if (alertContainer) {
+            alertContainer.appendChild(alert);
+        } else {
+            const mainContainer = document.querySelector('.row');
+            if (mainContainer) {
+                const firstCol = mainContainer.querySelector('.col-md-12');
+                if (firstCol) {
+                    firstCol.appendChild(alert);
+                } else {
+                    mainContainer.insertBefore(alert, mainContainer.firstChild);
+                }
+            }
+        }
+        
+        setTimeout(function() {
+            alert.remove();
+        }, 5000);
+    }
+});
 </script>
 {% endblock %}
