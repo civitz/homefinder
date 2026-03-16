@@ -388,5 +388,97 @@ def test_notification_engine_processing(sample_listing, temp_db):
     assert history[0].error_message == "Pending notification for new property"
 
 
+def test_pending_notifications_are_sent(temp_db):
+    """Test that pending notifications are actually sent by process_pending_notifications."""
+    # Create Telegram config
+    telegram_config = TelegramConfiguration(
+        bot_token="123456789:TEST_TOKEN_123456789", bot_name="Test Bot", is_active=True
+    )
+    config_id = temp_db.save_telegram_config(telegram_config)
+
+    # Create subscription
+    subscription = NotificationSubscription(
+        user_id="test_user",
+        subscription_name="Test Subscription",
+        search_filters={"city": "Padova"},
+        telegram_config_id=config_id,
+        is_active=True,
+    )
+    subscription_id = temp_db.save_notification_subscription(subscription)
+
+    # Create notification engine
+    telegram_service = TelegramService(temp_db, dry_run=True)
+    engine = NotificationEngine(temp_db, telegram_service)
+
+    # Add a listing that matches the subscription
+    sample_listing = Listing(
+        title="Test Property",
+        agency_id=1,
+        url="https://example.com/test-property",
+        description="A beautiful test property",
+        contract_type=Contract.SELL,
+        price=250000.0,
+        city="Padova",
+        neighborhood="Centro",
+        address="Via Test 123",
+        rooms=4,
+        bedrooms=2,
+        bathrooms=2,
+        square_meters=100,
+        floor="2",
+        year_built=2010,
+        has_elevator=True,
+        heating=None,
+        has_air_conditioning=True,
+        has_garage=True,
+        is_furnished=False,
+        energy_class="A",
+        energy_consumption=120.5,
+        features=["balcony", "garden"],
+        scrape_date=datetime.now(),
+        publication_date=datetime.now(),
+        raw_html_file="test.html",
+        agency_listing_id="TEST123",
+        creation_date=datetime.now(),
+    )
+
+    listing_id = temp_db.save_listing(sample_listing)
+    assert listing_id > 0
+
+    # Manually queue a pending notification (simulating subscription creation flow)
+    listing = temp_db.get_listing_by_id(listing_id)
+    subscriptions = temp_db.get_active_notification_subscriptions()
+    matches = []
+    for sub in subscriptions:
+        if engine._listing_matches_subscription(listing, sub):
+            matches.append({"listing": listing, "subscription": sub})
+
+    queued_count = engine.send_notifications(matches)
+    assert queued_count == 1
+
+    # Verify pending notification exists
+    pending = temp_db.get_pending_notifications()
+    assert len(pending) == 1
+    assert pending[0].is_successful == False
+    assert pending[0].error_message == "Pending notification for new property"
+
+    # Process pending notifications (this should send them)
+    sent_count = engine.process_pending_notifications()
+
+    # Should have sent the notification
+    assert sent_count == 1
+
+    # Verify notification history shows successful send
+    history = temp_db.get_recent_notification_history()
+    assert len(history) >= 1
+    # The most recent entry should be successful
+    assert history[0].is_successful == True
+    assert history[0].telegram_message_id == "mock_id"
+
+    # Verify no pending notifications remain
+    pending_after = temp_db.get_pending_notifications()
+    assert len(pending_after) == 0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
