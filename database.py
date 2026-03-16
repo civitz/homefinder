@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from models import Listing
 from config import DB_FILE
 
+
 @dataclass
 class Agency:
     """Data model for agencies."""
@@ -83,72 +84,72 @@ class DatabaseManager:
                         address TEXT,
                         created_at TEXT NOT NULL,
                         updated_at TEXT NOT NULL
-                  )
-                  ''')
-                  
-                 # Create raw_html_pages table
+                    )
+                ''')
+                
+                # Create raw_html_pages table
                 cursor.execute('''
-                     CREATE TABLE IF NOT EXISTS raw_html_pages (
-                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         url TEXT UNIQUE NOT NULL,
-                         agency_id INTEGER NOT NULL,
-                         raw_html TEXT NOT NULL,
-                         scrape_date TEXT NOT NULL,
-                         is_successful BOOLEAN DEFAULT FALSE,
-                         error_message TEXT,
-                         FOREIGN KEY (agency_id) REFERENCES agencies(id)
-                     )
-                 ''')
-                  
-                 # Create listings table (updated to use agency_id instead of agency)
+                    CREATE TABLE IF NOT EXISTS raw_html_pages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        url TEXT UNIQUE NOT NULL,
+                        agency_id INTEGER NOT NULL,
+                        raw_html TEXT NOT NULL,
+                        scrape_date TEXT NOT NULL,
+                        is_successful BOOLEAN DEFAULT FALSE,
+                        error_message TEXT,
+                        FOREIGN KEY (agency_id) REFERENCES agencies(id)
+                    )
+                ''')
+                
+                # Create listings table (updated to use agency_id instead of agency)
                 cursor.execute('''
-                       CREATE TABLE IF NOT EXISTS listings (
-                           id INTEGER PRIMARY KEY AUTOINCREMENT,
-                           title TEXT NOT NULL,
-                           agency_id INTEGER NOT NULL,
-                           url TEXT UNIQUE NOT NULL,
-                           description TEXT,
-                           contract_type TEXT NOT NULL,
-                           price REAL NOT NULL,
-                           city TEXT NOT NULL,
-                           neighborhood TEXT,
-                           address TEXT,
-                           rooms INTEGER,
-                           bedrooms INTEGER,
-                           bathrooms INTEGER,
-                           square_meters INTEGER,
-                           floor TEXT,
-                           year_built INTEGER,
-                           has_elevator BOOLEAN,
-                           heating TEXT,
-                           has_air_conditioning BOOLEAN,
-                           has_garage BOOLEAN,
-                           is_furnished BOOLEAN,
-                           energy_class TEXT,
-                           energy_consumption REAL,
-                           features TEXT,
-                           scrape_date TEXT NOT NULL,
-                           publication_date TEXT,
-                            raw_html_file TEXT,
-                            agency_listing_id TEXT,
-                            modify_date TEXT,
-                            creation_date TEXT NOT NULL,
-                            last_verified_date TEXT,
-                            is_broken BOOLEAN DEFAULT FALSE,
-                            raw_html_page_id INTEGER,
-                            FOREIGN KEY (agency_id) REFERENCES agencies(id),
-                            FOREIGN KEY (raw_html_page_id) REFERENCES raw_html_pages(id)
-                       )
-                 ''')
-                  
+                    CREATE TABLE IF NOT EXISTS listings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title TEXT NOT NULL,
+                        agency_id INTEGER NOT NULL,
+                        url TEXT UNIQUE NOT NULL,
+                        description TEXT,
+                        contract_type TEXT NOT NULL,
+                        price REAL NOT NULL,
+                        city TEXT NOT NULL,
+                        neighborhood TEXT,
+                        address TEXT,
+                        rooms INTEGER,
+                        bedrooms INTEGER,
+                        bathrooms INTEGER,
+                        square_meters INTEGER,
+                        floor TEXT,
+                        year_built INTEGER,
+                        has_elevator BOOLEAN,
+                        heating TEXT,
+                        has_air_conditioning BOOLEAN,
+                        has_garage BOOLEAN,
+                        is_furnished BOOLEAN,
+                        energy_class TEXT,
+                        energy_consumption REAL,
+                        features TEXT,
+                        scrape_date TEXT NOT NULL,
+                        publication_date TEXT,
+                        raw_html_file TEXT,
+                        agency_listing_id TEXT,
+                        modify_date TEXT,
+                        creation_date TEXT NOT NULL,
+                        last_verified_date TEXT,
+                        is_broken BOOLEAN DEFAULT FALSE,
+                        raw_html_page_id INTEGER,
+                        FOREIGN KEY (agency_id) REFERENCES agencies(id),
+                        FOREIGN KEY (raw_html_page_id) REFERENCES raw_html_pages(id)
+                    )
+                ''')
+                
                 # Create indexes for better search performance
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_city ON listings(city)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_price ON listings(price)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_contract ON listings(contract_type)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_square_meters ON listings(square_meters)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_agency ON listings(agency_id)')
-                  
-                 # Create scrape_history table
+                
+                # Create scrape_history table
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS scrape_history (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -264,135 +265,135 @@ class DatabaseManager:
                 existing = cursor.fetchone()
                 
                 if existing:
-                     # Update existing listing
-                     update_query = '''
-                         UPDATE listings SET 
-                             title = ?,
-                             agency_id = ?,
-                             description = ?,
-                             contract_type = ?,
-                             price = ?,
-                             city = ?,
-                             neighborhood = ?,
-                             address = ?,
-                             rooms = ?,
-                             bedrooms = ?,
-                             bathrooms = ?,
-                             square_meters = ?,
-                             floor = ?,
-                             year_built = ?,
-                             has_elevator = ?,
-                             heating = ?,
-                             has_air_conditioning = ?,
-                             has_garage = ?,
-                             is_furnished = ?,
-                             energy_class = ?,
-                             energy_consumption = ?,
-                              features = ?,
-                              scrape_date = ?,
-                              publication_date = ?,
-                              raw_html_file = ?,
-                              agency_listing_id = ?,
-                              modify_date = ?,
-                              creation_date = ?,
-                              last_verified_date = ?,
-                              is_broken = ?
-                          WHERE url = ?
-                     '''
-                     
-                     cursor.execute(update_query, (
-                         listing_dict['title'],
-                         listing_dict['agency_id'],
-                         listing_dict['description'],
-                         listing_dict['contract_type'],
-                         listing_dict['price'],
-                         listing_dict['city'],
-                         listing_dict['neighborhood'],
-                         listing_dict['address'],
-                         listing_dict['rooms'],
-                         listing_dict['bedrooms'],
-                         listing_dict['bathrooms'],
-                         listing_dict['square_meters'],
-                         listing_dict['floor'],
-                         listing_dict['year_built'],
-                         listing_dict['has_elevator'],
-                         listing_dict['heating'],
-                         listing_dict['has_air_conditioning'],
-                         listing_dict['has_garage'],
-                         listing_dict['is_furnished'],
-                         listing_dict['energy_class'],
-                         listing_dict['energy_consumption'],
-                         str(listing_dict['features']) if listing_dict['features'] else None,
-                         listing_dict['scrape_date'],
-                         listing_dict['publication_date'],
-                          listing_dict['raw_html_file'],
-                          listing_dict['agency_listing_id'],
-                          listing_dict.get('modify_date'),
-                          listing_dict.get('creation_date'),
-                          listing_dict.get('last_verified_date'),
-                          listing_dict.get('is_broken', False),
-                          listing.url
-                      ))
-                     
-                     self.logger.info(f"Updated existing listing: {listing.url}")
+                    # Update existing listing
+                    update_query = '''
+                        UPDATE listings SET 
+                            title = ?,
+                            agency_id = ?,
+                            description = ?,
+                            contract_type = ?,
+                            price = ?,
+                            city = ?,
+                            neighborhood = ?,
+                            address = ?,
+                            rooms = ?,
+                            bedrooms = ?,
+                            bathrooms = ?,
+                            square_meters = ?,
+                            floor = ?,
+                            year_built = ?,
+                            has_elevator = ?,
+                            heating = ?,
+                            has_air_conditioning = ?,
+                            has_garage = ?,
+                            is_furnished = ?,
+                            energy_class = ?,
+                            energy_consumption = ?,
+                            features = ?,
+                            scrape_date = ?,
+                            publication_date = ?,
+                            raw_html_file = ?,
+                            agency_listing_id = ?,
+                            modify_date = ?,
+                            creation_date = ?,
+                            last_verified_date = ?,
+                            is_broken = ?
+                        WHERE url = ?
+                    '''
+                    
+                    cursor.execute(update_query, (
+                        listing_dict['title'],
+                        listing_dict['agency_id'],
+                        listing_dict['description'],
+                        listing_dict['contract_type'],
+                        listing_dict['price'],
+                        listing_dict['city'],
+                        listing_dict['neighborhood'],
+                        listing_dict['address'],
+                        listing_dict['rooms'],
+                        listing_dict['bedrooms'],
+                        listing_dict['bathrooms'],
+                        listing_dict['square_meters'],
+                        listing_dict['floor'],
+                        listing_dict['year_built'],
+                        listing_dict['has_elevator'],
+                        listing_dict['heating'],
+                        listing_dict['has_air_conditioning'],
+                        listing_dict['has_garage'],
+                        listing_dict['is_furnished'],
+                        listing_dict['energy_class'],
+                        listing_dict['energy_consumption'],
+                        str(listing_dict['features']) if listing_dict['features'] else None,
+                        listing_dict['scrape_date'],
+                        listing_dict['publication_date'],
+                        listing_dict['raw_html_file'],
+                        listing_dict['agency_listing_id'],
+                        listing_dict.get('modify_date'),
+                        listing_dict.get('creation_date'),
+                        listing_dict.get('last_verified_date'),
+                        listing_dict.get('is_broken', False),
+                        listing.url
+                    ))
+                    
+                    self.logger.info(f"Updated existing listing: {listing.url}")
                 else:
-                     # Insert new listing
-                      insert_query = '''
-                          INSERT INTO listings (
-                              title, agency_id, url, description, contract_type, price, city, 
-                              neighborhood, address, rooms, bedrooms, bathrooms, square_meters, 
-                              floor, year_built, has_elevator, heating, has_air_conditioning, 
-                              has_garage, is_furnished, energy_class, energy_consumption, 
-                               features, scrape_date, publication_date, raw_html_file, agency_listing_id,
-                               modify_date, creation_date, last_verified_date, is_broken
-                           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     '''
-                     
-                      cursor.execute(insert_query, (
-                         listing_dict['title'],
-                         listing_dict['agency_id'],
-                         listing_dict['url'],
-                         listing_dict['description'],
-                         listing_dict['contract_type'],
-                         listing_dict['price'],
-                         listing_dict['city'],
-                         listing_dict['neighborhood'],
-                         listing_dict['address'],
-                         listing_dict['rooms'],
-                         listing_dict['bedrooms'],
-                         listing_dict['bathrooms'],
-                         listing_dict['square_meters'],
-                         listing_dict['floor'],
-                         listing_dict['year_built'],
-                         listing_dict['has_elevator'],
-                         listing_dict['heating'],
-                         listing_dict['has_air_conditioning'],
-                         listing_dict['has_garage'],
-                         listing_dict['is_furnished'],
-                         listing_dict['energy_class'],
-                         listing_dict['energy_consumption'],
-                         str(listing_dict['features']) if listing_dict['features'] else None,
-                         listing_dict['scrape_date'],
-                         listing_dict['publication_date'],
-                          listing_dict['raw_html_file'],
-                           listing_dict['agency_listing_id'],
-                          listing_dict.get('modify_date'),
-                          listing_dict.get('creation_date'),
-                          listing_dict.get('last_verified_date'),
-                          listing_dict.get('is_broken', False)
-                      ))
-                     
-                      self.logger.info(f"Inserted new listing: {listing.url}")
-                 
+                    # Insert new listing
+                    insert_query = '''
+                        INSERT INTO listings (
+                            title, agency_id, url, description, contract_type, price, city, 
+                            neighborhood, address, rooms, bedrooms, bathrooms, square_meters, 
+                            floor, year_built, has_elevator, heating, has_air_conditioning, 
+                            has_garage, is_furnished, energy_class, energy_consumption, 
+                            features, scrape_date, publication_date, raw_html_file, agency_listing_id,
+                            modify_date, creation_date, last_verified_date, is_broken
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    '''
+                    
+                    cursor.execute(insert_query, (
+                        listing_dict['title'],
+                        listing_dict['agency_id'],
+                        listing_dict['url'],
+                        listing_dict['description'],
+                        listing_dict['contract_type'],
+                        listing_dict['price'],
+                        listing_dict['city'],
+                        listing_dict['neighborhood'],
+                        listing_dict['address'],
+                        listing_dict['rooms'],
+                        listing_dict['bedrooms'],
+                        listing_dict['bathrooms'],
+                        listing_dict['square_meters'],
+                        listing_dict['floor'],
+                        listing_dict['year_built'],
+                        listing_dict['has_elevator'],
+                        listing_dict['heating'],
+                        listing_dict['has_air_conditioning'],
+                        listing_dict['has_garage'],
+                        listing_dict['is_furnished'],
+                        listing_dict['energy_class'],
+                        listing_dict['energy_consumption'],
+                        str(listing_dict['features']) if listing_dict['features'] else None,
+                        listing_dict['scrape_date'],
+                        listing_dict['publication_date'],
+                        listing_dict['raw_html_file'],
+                        listing_dict['agency_listing_id'],
+                        listing_dict.get('modify_date'),
+                        listing_dict.get('creation_date'),
+                        listing_dict.get('last_verified_date'),
+                        listing_dict.get('is_broken', False)
+                    ))
+                    
+                    self.logger.info(f"Inserted new listing: {listing.url}")
+                
                 conn.commit()
-                 
+                
                 if existing:
                     # Return the existing ID for updates
                     return existing[0]
                 else:
                     # Return the newly generated ID for inserts
                     return cursor.lastrowid or -1
-                 
+                
         except sqlite3.Error as e:
             self.logger.error(f"Error saving listing {listing.url}: {e}")
             return -1
@@ -404,7 +405,7 @@ class DatabaseManager:
             if self.save_listing(listing):
                 success_count += 1
         return success_count
-
+    
     def save_raw_html_page(self, url: str, agency_id: int, raw_html: str, is_successful: bool = False, error_message: Optional[str] = None) -> int:
         """Save raw HTML page to database.
         
@@ -471,11 +472,11 @@ class DatabaseManager:
                     self.logger.info(f"Inserted new raw HTML page: {url} (ID: {page_id})")
                     conn.commit()
                     return page_id
-                
+                    
         except sqlite3.Error as e:
             self.logger.error(f"Error saving raw HTML page {url}: {e}")
             return -1
-
+    
     def update_raw_html_page_success(self, page_id: int, is_successful: bool = True, error_message: Optional[str] = None) -> bool:
         """Update the success status of a raw HTML page.
         
@@ -516,7 +517,7 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error updating raw HTML page {page_id}: {e}")
             return False
-
+    
     def get_raw_html_page_by_id(self, page_id: int) -> Optional[Dict[str, Any]]:
         """Get raw HTML page by ID.
         
@@ -554,7 +555,7 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error fetching raw HTML page {page_id}: {e}")
             return None
-
+    
     def update_listing(self, listing_id: int, update_data: Dict[str, Any]) -> bool:
         """Update a listing by ID with transaction support."""
         try:
@@ -611,7 +612,7 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error updating listing {listing_id}: {e}")
             return False
-
+    
     def get_listing_by_url(self, url: str) -> Optional[Listing]:
         """Get listing by URL."""
         try:
@@ -619,16 +620,16 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute('SELECT * FROM listings WHERE url = ?', (url,))
                 row = cursor.fetchone()
-                 
+                
                 if row:
                     return self._row_to_listing(row)
-                 
+                
                 return None
-                 
+                
         except sqlite3.Error as e:
             self.logger.error(f"Error fetching listing by URL {url}: {e}")
             return None
-
+    
     def get_listing_by_id(self, listing_id: int) -> Optional[Listing]:
         """Get listing by database ID."""
         try:
@@ -636,12 +637,12 @@ class DatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute('SELECT * FROM listings WHERE id = ?', (listing_id,))
                 row = cursor.fetchone()
-                  
+                
                 if row:
                     return self._row_to_listing(row)
-                  
+                
                 return None
-                  
+                
         except sqlite3.Error as e:
             self.logger.error(f"Error fetching listing by ID {listing_id}: {e}")
             return None
@@ -651,28 +652,28 @@ class DatabaseManager:
         try:
             query = 'SELECT * FROM listings WHERE 1=1'
             params = []
-             
+            
             # Add filters based on kwargs
             if 'city' in kwargs and kwargs['city']:
                 query += ' AND city = ?'
                 params.append(kwargs['city'])
-                 
+                
             if 'min_price' in kwargs and kwargs['min_price']:
                 query += ' AND price >= ?'
                 params.append(kwargs['min_price'])
-                 
+                
             if 'max_price' in kwargs and kwargs['max_price']:
                 query += ' AND price <= ?'
                 params.append(kwargs['max_price'])
-                 
+                
             if 'min_size' in kwargs and kwargs['min_size']:
                 query += ' AND square_meters >= ?'
                 params.append(kwargs['min_size'])
-                 
+                
             if 'contract_type' in kwargs and kwargs['contract_type']:
                 query += ' AND contract_type = ?'
                 params.append(kwargs['contract_type'])
-             
+            
             if 'agency_id' in kwargs and kwargs['agency_id']:
                 query += ' AND agency_id = ?'
                 params.append(kwargs['agency_id'])
@@ -738,14 +739,14 @@ class DatabaseManager:
             if 'min_rooms' in kwargs and kwargs['min_rooms']:
                 query += ' AND (rooms >= ? OR rooms IS NULL)'
                 params.append(kwargs['min_rooms'])
-             
+            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 rows = cursor.fetchall()
-                 
+                
                 return [self._row_to_listing(row) for row in rows]
-                 
+                
         except sqlite3.Error as e:
             self.logger.error(f"Error searching listings: {e}")
             return []
@@ -790,76 +791,76 @@ class DatabaseManager:
         if len(row) >= 33:
             # New schema: 33 columns
             listing_data = {
-                   'id': row[0],
-                   'title': row[1],
-                   'agency_id': row[2],
-                   'url': row[3],
-                  'description': row[4],
-                  'contract_type': row[5],
-                  'price': row[6],
-                  'city': row[7],
-                  'neighborhood': row[8],
-                  'address': row[9],
-                  'rooms': row[10],
-                  'bedrooms': row[11],
-                  'bathrooms': row[12],
-                  'square_meters': row[13],
-                  'floor': row[14],
-                  'year_built': row[15],
-                  'has_elevator': row[16],
-                  'heating': row[17],
-                  'has_air_conditioning': row[18],
-                  'has_garage': row[19],
-                  'is_furnished': row[20],
-                  'energy_class': row[21],
-                  'energy_consumption': row[22],
-                  'features': row[23],
-                  'scrape_date': row[24],
-                  'publication_date': row[25],
-                  'raw_html_file': row[26],
-                   'agency_listing_id': row[27],
-                   'modify_date': row[28],
-                   'creation_date': row[29],
-                   'last_verified_date': row[30],
-                   'is_broken': row[31],
-                   'raw_html_page_id': row[32]
-              }
+                'id': row[0],
+                'title': row[1],
+                'agency_id': row[2],
+                'url': row[3],
+                'description': row[4],
+                'contract_type': row[5],
+                'price': row[6],
+                'city': row[7],
+                'neighborhood': row[8],
+                'address': row[9],
+                'rooms': row[10],
+                'bedrooms': row[11],
+                'bathrooms': row[12],
+                'square_meters': row[13],
+                'floor': row[14],
+                'year_built': row[15],
+                'has_elevator': row[16],
+                'heating': row[17],
+                'has_air_conditioning': row[18],
+                'has_garage': row[19],
+                'is_furnished': row[20],
+                'energy_class': row[21],
+                'energy_consumption': row[22],
+                'features': row[23],
+                'scrape_date': row[24],
+                'publication_date': row[25],
+                'raw_html_file': row[26],
+                'agency_listing_id': row[27],
+                'modify_date': row[28],
+                'creation_date': row[29],
+                'last_verified_date': row[30],
+                'is_broken': row[31],
+                'raw_html_page_id': row[32]
+            }
         else:
             # Old schema: 32 columns (real database)
             listing_data = {
-                   'id': row[0],
-                   'title': row[1],
-                   'url': row[2],
-                  'description': row[3],
-                  'contract_type': row[4],
-                  'price': row[5],
-                  'city': row[6],
-                  'neighborhood': row[7],
-                  'address': row[8],
-                  'rooms': row[9],
-                  'bedrooms': row[10],
-                  'bathrooms': row[11],
-                  'square_meters': row[12],
-                  'floor': row[13],
-                  'year_built': row[14],
-                  'has_elevator': row[15],
-                  'heating': row[16],
-                  'has_air_conditioning': row[17],
-                  'has_garage': row[18],
-                  'is_furnished': row[19],
-                  'energy_class': row[20],
-                  'energy_consumption': row[21],
-                  'features': row[22],
-                  'scrape_date': row[23],
-                  'publication_date': row[24],
-                  'raw_html_file': row[25],
-                   'agency_listing_id': row[26],
-                   'modify_date': row[27],
-                   'agency_id': row[28],
-                   'creation_date': row[29],
-                   'last_verified_date': row[30],
-                   'is_broken': row[31]
-              }
+                'id': row[0],
+                'title': row[1],
+                'url': row[2],
+                'description': row[3],
+                'contract_type': row[4],
+                'price': row[5],
+                'city': row[6],
+                'neighborhood': row[7],
+                'address': row[8],
+                'rooms': row[9],
+                'bedrooms': row[10],
+                'bathrooms': row[11],
+                'square_meters': row[12],
+                'floor': row[13],
+                'year_built': row[14],
+                'has_elevator': row[15],
+                'heating': row[16],
+                'has_air_conditioning': row[17],
+                'has_garage': row[18],
+                'is_furnished': row[19],
+                'energy_class': row[20],
+                'energy_consumption': row[21],
+                'features': row[22],
+                'scrape_date': row[23],
+                'publication_date': row[24],
+                'raw_html_file': row[25],
+                'agency_listing_id': row[26],
+                'modify_date': row[27],
+                'agency_id': row[28],
+                'creation_date': row[29],
+                'last_verified_date': row[30],
+                'is_broken': row[31]
+            }
         
         # Convert features from string back to list
         if listing_data['features']:
@@ -876,30 +877,30 @@ class DatabaseManager:
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                 
+                
                 # Get total count
                 cursor.execute('SELECT COUNT(*) FROM listings')
                 total = cursor.fetchone()[0]
-                  
+                
                 # Get average price
                 cursor.execute('SELECT AVG(price) FROM listings')
                 avg_price = cursor.fetchone()[0] or 0
-                  
+                
                 # Get average size
                 cursor.execute('SELECT AVG(square_meters) FROM listings WHERE square_meters IS NOT NULL')
                 avg_size = cursor.fetchone()[0] or 0
-                  
+                
                 # Get last updated
                 cursor.execute('SELECT MAX(scrape_date) FROM listings')
                 last_updated = cursor.fetchone()[0]
-                  
+                
                 return {
                     'total_properties': total,
                     'average_price': round(avg_price, 2),
                     'average_size': round(avg_size, 2),
                     'last_updated': last_updated
                 }
-                  
+                
         except sqlite3.Error as e:
             self.logger.error(f"Error getting stats: {e}")
             return {
@@ -908,7 +909,7 @@ class DatabaseManager:
                 'average_size': 0,
                 'last_updated': None
             }
-
+    
     def get_price_distribution(self) -> Dict[str, Any]:
         """Get price distribution data for histogram."""
         try:
@@ -964,7 +965,7 @@ class DatabaseManager:
                 'sell': {'ranges': [], 'counts': []},
                 'rent': {'ranges': [], 'counts': []}
             }
-
+    
     def clear_all_listings(self) -> int:
         """Remove all listings from the database."""
         try:
@@ -986,7 +987,7 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error clearing all listings: {e}")
             return -1
-
+    
     def _cleanup_scrape_history(self) -> None:
         """Clean up scrape history to keep only MAX_SCRAPE_HISTORY_ENTRIES."""
         try:
@@ -1019,10 +1020,9 @@ class DatabaseManager:
                 
         except sqlite3.Error as e:
             self.logger.error(f"Error cleaning up scrape history: {e}")
-
+    
     def log_scrape_run(self, source: str, listings_count: int, duration_seconds: float) -> None:
         """Log a scrape run to the scrape history."""
-        print("SOMEBODY IS CALLING LOG SCRAPE")
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -1042,7 +1042,7 @@ class DatabaseManager:
                 
         except sqlite3.Error as e:
             self.logger.error(f"Error logging scrape run: {e}")
-
+    
     def get_last_scrape_time(self) -> Optional[datetime]:
         """Get the timestamp of the last scrape run."""
         try:
@@ -1063,7 +1063,7 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error getting last scrape time: {e}")
             return None
-
+    
     # Telegram Configuration Methods
     def _ensure_notification_tables_exist(self) -> None:
         """Ensure notification tables exist in the database."""
@@ -1092,7 +1092,7 @@ class DatabaseManager:
                 except sqlite3.Error:
                     # Column already exists or table doesn't exist, which is fine
                     pass
-
+                
                 # Create notification_subscriptions table if it doesn't exist
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS notification_subscriptions (
@@ -1108,7 +1108,7 @@ class DatabaseManager:
                     )
                 ''')
                 
-                 # Add telegram_config_id column if it doesn't exist (for existing databases)
+                # Add telegram_config_id column if it doesn't exist (for existing databases)
                 try:
                     cursor.execute('ALTER TABLE notification_subscriptions ADD COLUMN telegram_config_id INTEGER')
                     conn.commit()
@@ -1162,7 +1162,7 @@ class DatabaseManager:
                 except sqlite3.Error as e:
                     self.logger.warning(f"Could not migrate telegram_chat_id column: {e}")
                     # This is not critical, continue execution
-
+                
                 # Create notification_history table if it doesn't exist
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS notification_history (
@@ -1185,24 +1185,29 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error ensuring notification tables exist: {e}")
             raise
-
+    
     def save_telegram_config(self, config: TelegramConfiguration) -> int:
-        """Save Telegram configuration to database."""
+        """Save Telegram configuration to database.
+        
+        Forces all configurations to use id=1, maintaining single config support.
+        For existing databases with multiple configs, keeps the first one and logs warning.
+        """
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 
                 now = datetime.now().isoformat()
+                config_id = 1  # Force id=1
                 
-                # Check if configuration already exists
-                cursor.execute('SELECT id FROM telegram_configurations WHERE bot_token = ?', (config.bot_token,))
-                existing = cursor.fetchone()
+                # Check if configuration already exists with id=1
+                cursor.execute('SELECT id FROM telegram_configurations WHERE id = ?', (config_id,))
+                existing_with_id1 = cursor.fetchone()
                 
-                if existing:
-                    # Update existing configuration
+                if existing_with_id1:
+                    # Update existing configuration with id=1
                     update_query = '''
                         UPDATE telegram_configurations SET 
+                            bot_token = ?,
                             bot_name = ?,
                             chat_id = ?,
                             is_active = ?,
@@ -1211,25 +1216,35 @@ class DatabaseManager:
                     '''
                     
                     cursor.execute(update_query, (
+                        config.bot_token,
                         config.bot_name,
                         config.chat_id,
                         config.is_active,
                         now,
-                        existing[0]
+                        config_id
                     ))
                     
-                    self.logger.info(f"Updated Telegram configuration: {config.bot_name}")
                     conn.commit()
-                    return existing[0]
+                    self.logger.info(f"Updated Telegram configuration with id=1")
+                    return config_id
                 else:
-                    # Insert new configuration
+                    # Check if any configuration exists (for migration)
+                    cursor.execute('SELECT COUNT(*) FROM telegram_configurations')
+                    existing_configs = cursor.fetchone()[0]
+                    
+                    if existing_configs > 0:
+                        # Log warning that we're keeping the first config
+                        self.logger.warning(f"Found {existing_configs} existing configuration(s). Keeping first config (id=1) and ignoring others.")
+                    
+                    # Insert new configuration with id=1
                     insert_query = '''
                         INSERT INTO telegram_configurations 
-                            (bot_token, bot_name, chat_id, is_active, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                            (id, bot_token, bot_name, chat_id, is_active, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
                     '''
                     
                     cursor.execute(insert_query, (
+                        config_id,
                         config.bot_token,
                         config.bot_name,
                         config.chat_id,
@@ -1238,24 +1253,23 @@ class DatabaseManager:
                         now
                     ))
                     
-                    config_id = cursor.lastrowid or -1
-                    self.logger.info(f"Inserted new Telegram configuration: {config.bot_name} (ID: {config_id})")
                     conn.commit()
+                    self.logger.info(f"Inserted new Telegram configuration with id=1")
                     return config_id
-                    
-        except sqlite3.Error as e:
+        
+        except Exception as e:
             self.logger.error(f"Error saving Telegram configuration: {e}")
             return -1
-
+    
     def get_all_telegram_configs(self) -> List[TelegramConfiguration]:
-        """Get all Telegram configurations."""
+        """Get Telegram configurations with id=1 (single config support)."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
                     SELECT id, bot_token, bot_name, chat_id, is_active, created_at, updated_at 
                     FROM telegram_configurations 
+                    WHERE id = 1 
                     ORDER BY created_at DESC
                 ''')
                 rows = cursor.fetchall()
@@ -1275,13 +1289,12 @@ class DatabaseManager:
                 return configs
                 
         except sqlite3.Error as e:
-            self.logger.error(f"Error fetching all Telegram configs: {e}")
+            self.logger.error(f"Error fetching Telegram configs: {e}")
             return []
-
+    
     def get_active_telegram_configs(self) -> List[TelegramConfiguration]:
         """Get all active Telegram configurations."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -1309,11 +1322,10 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error fetching active Telegram configs: {e}")
             return []
-
+    
     def get_telegram_config_by_id(self, config_id: int) -> Optional[TelegramConfiguration]:
         """Get Telegram configuration by ID."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -1339,11 +1351,10 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error fetching Telegram config by ID {config_id}: {e}")
             return None
-
+    
     def delete_telegram_config(self, config_id: int) -> bool:
         """Delete Telegram configuration by ID."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('DELETE FROM telegram_configurations WHERE id = ?', (config_id,))
@@ -1359,12 +1370,11 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error deleting Telegram config {config_id}: {e}")
             return False
-
+    
     # Notification Subscription Methods
     def get_active_notification_subscriptions(self) -> List[NotificationSubscription]:
         """Get all active notification subscriptions."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -1398,11 +1408,10 @@ class DatabaseManager:
         except Exception as e:
             self.logger.error(f"Error fetching active notification subscriptions: {e}")
             return []
-
+    
     def get_notification_subscriptions_by_user(self, user_id: str) -> List[NotificationSubscription]:
         """Get notification subscriptions for a specific user."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -1436,11 +1445,10 @@ class DatabaseManager:
         except Exception as e:
             self.logger.error(f"Error fetching notification subscriptions for user {user_id}: {e}")
             return []
-
+    
     def delete_notification_subscription(self, subscription_id: int) -> bool:
         """Delete notification subscription by ID."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('DELETE FROM notification_subscriptions WHERE id = ?', (subscription_id,))
@@ -1456,7 +1464,7 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error deleting notification subscription {subscription_id}: {e}")
             return False
-
+    
     def save_notification_subscription(self, subscription: NotificationSubscription) -> int:
         """Save notification subscription to database."""
         try:
@@ -1481,7 +1489,7 @@ class DatabaseManager:
                             updated_at = ?
                         WHERE id = ?
                     '''
-                     
+                    
                     cursor.execute(update_query, (
                         subscription.user_id,
                         subscription.subscription_name,
@@ -1491,7 +1499,7 @@ class DatabaseManager:
                         now,
                         subscription.id
                     ))
-                     
+                    
                     self.logger.info(f"Updated notification subscription: {subscription.subscription_name}")
                     conn.commit()
                     return subscription.id
@@ -1503,7 +1511,7 @@ class DatabaseManager:
                              telegram_config_id, is_active, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
                     '''
-                     
+                    
                     cursor.execute(insert_query, (
                         subscription.user_id,
                         subscription.subscription_name,
@@ -1513,7 +1521,7 @@ class DatabaseManager:
                         now,
                         now
                     ))
-                     
+                    
                     subscription_id = cursor.lastrowid or -1
                     self.logger.info(f"Inserted new notification subscription: {subscription.subscription_name} (ID: {subscription_id})")
                     conn.commit()
@@ -1524,7 +1532,7 @@ class DatabaseManager:
                         self._check_existing_properties_for_subscription(subscription_id, subscription.search_filters)
                     
                     return subscription_id
-                     
+                    
         except sqlite3.Error as e:
             self.logger.error(f"Error saving notification subscription: {e}")
             return -1
@@ -1656,11 +1664,10 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error getting notification count for listing {listing_id}, subscription {subscription_id}: {e}")
             return 0
-
+    
     def get_notification_subscription_by_id(self, subscription_id: int) -> Optional[NotificationSubscription]:
         """Get notification subscription by ID."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -1692,12 +1699,11 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error fetching notification subscription by ID {subscription_id}: {e}")
             return None
-
+    
     def log_notification(self, listing_id: int, subscription_id: int, telegram_message_id: Optional[str], 
                         is_successful: bool, error_message: Optional[str] = None) -> int:
         """Log a notification to the notification history."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 
@@ -1754,11 +1760,10 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error logging notification: {e}")
             return -1
-
+    
     def get_notification_count_for_listing(self, listing_id: int) -> int:
         """Get the number of notifications sent for a listing."""
         try:
-            
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -1771,11 +1776,10 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error getting notification count for listing {listing_id}: {e}")
             return 0
-
+    
     def get_notification_history_for_subscription(self, subscription_id: int) -> List[NotificationHistory]:
         """Get notification history for a specific subscription."""
         try:
-             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -1788,7 +1792,7 @@ class DatabaseManager:
                     ORDER BY nh.notification_sent_at DESC
                 ''', (subscription_id,))
                 rows = cursor.fetchall()
-                 
+                
                 history = []
                 for row in rows:
                     history.append(NotificationHistory(
@@ -1801,18 +1805,17 @@ class DatabaseManager:
                         is_successful=bool(row[6]),
                         error_message=row[7]
                     ))
-                 
+                
                 return history
-                 
+                
         except sqlite3.Error as e:
             self.logger.error(f"Error getting notification history for subscription {subscription_id}: {e}")
             return []
-
+    
     # Notification History Methods
     def get_recent_notification_history(self, limit: int = 20) -> List[NotificationHistory]:
         """Get recent notification history."""
         try:
-             
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
@@ -1825,7 +1828,7 @@ class DatabaseManager:
                     LIMIT ?
                 ''', (limit,))
                 rows = cursor.fetchall()
-                 
+                
                 history = []
                 for row in rows:
                     history.append(NotificationHistory(
@@ -1838,13 +1841,13 @@ class DatabaseManager:
                         is_successful=bool(row[6]),
                         error_message=row[7]
                     ))
-                 
+                
                 return history
-                 
+                
         except sqlite3.Error as e:
             self.logger.error(f"Error getting recent notification history: {e}")
             return []
-
+    
     def get_scrape_history(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent scrape history."""
         try:

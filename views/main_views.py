@@ -129,7 +129,7 @@ def admin_scrape():
 
 @main_bp.route('/admin/telegram', methods=['GET', 'POST'])
 def admin_telegram():
-    """Telegram configuration management."""
+    """Telegram configuration management (single config support)."""
     try:
         from database import DatabaseManager, TelegramConfiguration
         from notification_service import TelegramService
@@ -137,7 +137,7 @@ def admin_telegram():
         db_manager = DatabaseManager()
         
         if request.method == 'POST':
-             # Handle form submission
+            # Handle form submission
             bot_token = request.form.get('bot_token', '').strip()
             bot_name = request.form.get('bot_name', 'HomeFinder Bot').strip()
             chat_id = request.form.get('chat_id', '').strip()
@@ -153,7 +153,7 @@ def admin_telegram():
                 flash("Invalid Telegram bot token format. Expected format: 123456789:ABCdefGHIjklMNOPQRsTUVwxyZ", "error")
                 return redirect(url_for('main.admin_telegram'))
             
-             # Save configuration
+            # Save configuration (always uses id=1)
             config = TelegramConfiguration(
                 bot_token=bot_token,
                 bot_name=bot_name,
@@ -163,13 +163,13 @@ def admin_telegram():
             
             config_id = db_manager.save_telegram_config(config)
             
-            if config_id > 0:
+            if config_id is not None and config_id > 0:
                 flash("Telegram configuration saved successfully", "success")
                 
                 # Test the configuration
                 telegram_service = TelegramService(db_manager, dry_run=True)
                 test_success = telegram_service.send_notification(
-                    int(config_id), 
+                    int(config_id),
                     "Test notification from HomeFinder",
                     "https://example.com"
                 )
@@ -182,11 +182,11 @@ def admin_telegram():
                 flash("Failed to save Telegram configuration", "error")
                 
             return redirect(url_for('main.admin_telegram'))
-            
-        # GET request - show configuration form
-        configs = db_manager.get_all_telegram_configs()
-        return render_template('admin_telegram.html', configs=configs)
         
+        # GET request - show configuration form (fetches only the single id=1 config)
+        configs = db_manager.get_all_telegram_configs()
+        config = configs[0] if configs else None
+        return render_template('admin_telegram.html', configs=configs, current_config=config)
     except Exception as e:
         current_app.logger.error(f"Error in Telegram admin: {e}")
         flash(f"Error in Telegram admin: {e}", "error")
@@ -198,11 +198,11 @@ def admin_telegram_test():
     """Send a test Telegram notification."""
     try:
         from notification_service import TelegramService
-        from database import DatabaseManager
+        from database import DatabaseManager, TelegramConfiguration
         
+        # Get configuration from request form
         bot_token = request.form.get('bot_token', '').strip()
         chat_id = request.form.get('chat_id', '').strip()
-        message = request.form.get('message', 'Test notification from HomeFinder')
         
         # Validate inputs
         if not bot_token:
@@ -213,34 +213,53 @@ def admin_telegram_test():
             flash("Chat ID is required", "error")
             return redirect(url_for('main.admin_telegram'))
         
-        # Create a temporary Telegram service for testing
-        # We'll use a temporary database manager and dry_run=False to actually send
-        temp_db = DatabaseManager()
-        telegram_service = TelegramService(temp_db, dry_run=False)
+        # Validate Telegram token format
+        import re
+        if not re.match(r'^\d+:[a-zA-Z0-9_-]+$', bot_token):
+            flash("Invalid Telegram bot token format. Expected format: 123456789:ABCdefGHIjklMNOPQRsTUVwxyZ", "error")
+            return redirect(url_for('main.admin_telegram'))
         
-        # Create a temporary config for testing
-        from database import TelegramConfiguration
-        temp_config = TelegramConfiguration(
+        # Get database manager
+        db_manager = DatabaseManager()
+        
+        # Create a temporary Telegram service for testing
+        telegram_service = TelegramService(db_manager, dry_run=False)
+        
+        # Create a temporary configuration for testing
+        config = TelegramConfiguration(
             bot_token=bot_token,
             bot_name="Test Config",
             chat_id=chat_id,
             is_active=True
         )
         
-        # Try to send the test notification using direct method
-        success = telegram_service.send_notification(
-            config_id=99999,  # Use a dummy ID
-            message=message,
-            listing_url="https://example.com/test",
-            bot_token=bot_token,
-            chat_id=chat_id
-        )
+        # Save the temporary configuration to database
+        config_id = db_manager.save_telegram_config(config)
         
-        if success:
-            flash("Test notification sent successfully! Check your Telegram chat.", "success")
-        else:
-            flash("Failed to send test notification. Check logs for details.", "error")
+        if config_id > 0:
+            # Get the configuration ID for testing
+            test_config = db_manager.get_telegram_config_by_id(config_id)
             
+            if test_config and test_config.chat_id:
+                # Call TelegramService directly with the configuration
+                # Note: We need to pass bot_token and chat_id directly to send_notification
+                # The TelegramService will use the configured config_id if dry_run=False
+                success = telegram_service._send_direct_notification(
+                    bot_token=bot_token,
+                    chat_id=test_config.chat_id,
+                    message="Test notification from HomeFinder",
+                    listing_url="https://homefinder.app/test"
+                )
+                
+                if success:
+                    flash("Test notification sent successfully! Check your Telegram chat.", "success")
+                else:
+                    flash("Test notification failed. Check logs for details.", "error")
+            else:
+                flash("Failed to send test notification. Configuration not available.", "warning")
+        else:
+            flash("Failed to save Telegram configuration", "error")
+        
         return redirect(url_for('main.admin_telegram'))
         
     except Exception as e:
