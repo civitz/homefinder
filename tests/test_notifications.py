@@ -159,12 +159,13 @@ def test_notification_subscription_crud(temp_db):
 def test_telegram_service_dry_run_mode(mock_telegram_service):
     """Test Telegram service in dry run mode."""
     # Test sending a notification (should succeed in dry run mode)
-    success = mock_telegram_service.send_notification(
+    success, message_id = mock_telegram_service.send_notification(
         1,  # config_id
         "Test notification message",
         "https://example.com/test",
     )
     assert success == True
+    assert message_id == "mock_id"
 
     # In dry run mode, no actual messages are sent, just logged
     # The success indicates the service would have sent the message
@@ -373,16 +374,18 @@ def test_notification_engine_processing(sample_listing, temp_db):
         if engine._listing_matches_subscription(listing, sub):
             matches.append({"listing": listing, "subscription": sub})
 
-    # Send notifications for matches
-    sent_count = engine.send_notifications(matches)
+    # Queue notifications for matches
+    queued_count = engine.send_notifications(matches)
 
-    # Should have sent at least one notification
-    assert sent_count >= 1
+    # Should have queued at least one notification
+    assert queued_count >= 1
 
-    # Check notification history
+    # Check notification history - should have pending notifications
     history = temp_db.get_recent_notification_history()
     assert len(history) >= 1
-    assert history[0].is_successful == True  # Mock mode should succeed
+    # Should be marked as pending (not yet sent)
+    assert history[0].is_successful == False
+    assert history[0].error_message == "Pending notification for new property"
 
 
 if __name__ == "__main__":

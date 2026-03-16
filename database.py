@@ -2137,6 +2137,44 @@ class DatabaseManager:
             self.logger.error(f"Error getting recent notification history: {e}")
             return []
 
+    def get_pending_notifications(self) -> List[NotificationHistory]:
+        """Get all pending notifications that haven't been sent yet."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT nh.id, nh.listing_id, nh.subscription_id, ns.subscription_name, 
+                           nh.notification_sent_at, nh.telegram_message_id, 
+                           nh.is_successful, nh.error_message
+                    FROM notification_history nh
+                    LEFT JOIN notification_subscriptions ns ON nh.subscription_id = ns.id
+                    WHERE nh.is_successful = FALSE 
+                      AND nh.error_message LIKE 'Pending%'
+                    ORDER BY nh.notification_sent_at ASC
+                """)
+                rows = cursor.fetchall()
+
+                history = []
+                for row in rows:
+                    history.append(
+                        NotificationHistory(
+                            id=row[0],
+                            listing_id=row[1],
+                            subscription_id=row[2],
+                            subscription_name=row[3] or "",
+                            notification_sent_at=row[4],
+                            telegram_message_id=row[5],
+                            is_successful=bool(row[6]),
+                            error_message=row[7],
+                        )
+                    )
+
+                return history
+
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting pending notifications: {e}")
+            return []
+
     def get_scrape_history(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent scrape history."""
         try:
