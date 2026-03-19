@@ -5,13 +5,63 @@ from datetime import datetime
 import re
 
 
+class ConfigType(Enum):
+    """Configuration value types."""
+
+    STRING = "string"
+    INTEGER = "integer"
+    BOOLEAN = "boolean"
+    JSON = "json"
+
+
+@dataclass
+class Configuration:
+    """Data model for application configurations."""
+
+    config_key: str
+    config_type: ConfigType
+    config_value: str
+    description: Optional[str] = None
+    is_active: bool = True
+    id: Optional[int] = None
+    created_at: str = ""
+    updated_at: str = ""
+
+    def get_typed_value(self) -> Any:
+        """Return the config value cast to its proper type."""
+        if self.config_type == ConfigType.BOOLEAN:
+            return self.config_value.lower() in ("true", "1", "yes")
+        elif self.config_type == ConfigType.INTEGER:
+            return int(self.config_value)
+        elif self.config_type == ConfigType.JSON:
+            import json
+
+            return json.loads(self.config_value)
+        else:
+            return self.config_value
+
+    def set_typed_value(self, value: Any) -> None:
+        """Set the config value from a typed value."""
+        if self.config_type == ConfigType.BOOLEAN:
+            self.config_value = str(bool(value)).lower()
+        elif self.config_type == ConfigType.INTEGER:
+            self.config_value = str(int(value))
+        elif self.config_type == ConfigType.JSON:
+            import json
+
+            self.config_value = json.dumps(value)
+        else:
+            self.config_value = str(value)
+
+
 class Contract(Enum):
     """Property contract types."""
+
     SELL = "sell"
     RENT = "rent"
 
     @classmethod
-    def from_string(cls, value: str) -> 'Contract':
+    def from_string(cls, value: str) -> "Contract":
         """Convert string to Contract enum."""
         value = value.lower()
         if "vendita" in value or "sell" in value:
@@ -25,12 +75,13 @@ class Contract(Enum):
 
 class Riscaldamento(Enum):
     """Heating types."""
+
     AUTONOMOUS = "autonomous"
     CENTRALIZED = "centralized"
     UNKNOWN = "unknown"
 
     @classmethod
-    def from_string(cls, value: str) -> 'Riscaldamento':
+    def from_string(cls, value: str) -> "Riscaldamento":
         """Convert string to Riscaldamento enum."""
         value = value.lower()
         if "autonomo" in value or "autonomous" in value:
@@ -44,22 +95,22 @@ class Riscaldamento(Enum):
 @dataclass
 class Listing:
     """Main data model for property listings."""
-    
+
     # Basic information
     title: str
     agency_id: int
     url: str
     description: str
-    
+
     # Financial information
     contract_type: Contract
     price: float
-    
+
     # Location information
     city: str
     neighborhood: Optional[str] = None
     address: Optional[str] = None
-    
+
     # Physical characteristics
     rooms: Optional[int] = None
     bedrooms: Optional[int] = None
@@ -67,22 +118,22 @@ class Listing:
     square_meters: Optional[int] = None
     floor: Optional[str] = None
     year_built: Optional[int] = None
-    
+
     # Features
     has_elevator: Optional[bool] = None
     heating: Optional[Riscaldamento] = None
     has_air_conditioning: Optional[bool] = None
     has_garage: Optional[bool] = None
     is_furnished: Optional[bool] = None
-    
+
     # Energy information
     energy_class: Optional[str] = None
     energy_consumption: Optional[float] = None
-    
+
     # Additional features
     features: Optional[List[str]] = None
-    
-     # Database metadata
+
+    # Database metadata
     id: Optional[int] = None
 
     # Metadata
@@ -94,11 +145,11 @@ class Listing:
     creation_date: datetime = datetime.now()
     last_verified_date: Optional[datetime] = None
     is_broken: bool = False
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert listing to dictionary for JSON serialization."""
         return {
-             "title": self.title,
+            "title": self.title,
             "agency_id": self.agency_id,
             "url": self.url,
             "description": self.description,
@@ -122,25 +173,29 @@ class Listing:
             "energy_consumption": self.energy_consumption,
             "features": self.features,
             "scrape_date": self.scrape_date.isoformat(),
-            "publication_date": self.publication_date.isoformat() if self.publication_date else None,
+            "publication_date": self.publication_date.isoformat()
+            if self.publication_date
+            else None,
             "id": self.id,
             "raw_html_file": self.raw_html_file,
             "agency_listing_id": self.agency_listing_id,
-             "modify_date": self.modify_date.isoformat() if self.modify_date else None,
+            "modify_date": self.modify_date.isoformat() if self.modify_date else None,
             "creation_date": self.creation_date.isoformat(),
-            "last_verified_date": self.last_verified_date.isoformat() if self.last_verified_date else None,
-            "is_broken": self.is_broken
+            "last_verified_date": self.last_verified_date.isoformat()
+            if self.last_verified_date
+            else None,
+            "is_broken": self.is_broken,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Listing':
+    def from_dict(cls, data: Dict[str, Any]) -> "Listing":
         """Create listing from dictionary."""
         # Handle backward compatibility - if agency is provided but not agency_id
         if "agency" in data and "agency_id" not in data:
             # This is for backward compatibility during transition
             # In production, you should always use agency_id
             data["agency_id"] = data.get("agency_id", 0)  # Default to 0 if not provided
-        
+
         return cls(
             title=data["title"],
             agency_id=data["agency_id"],
@@ -166,19 +221,28 @@ class Listing:
             energy_consumption=data.get("energy_consumption"),
             features=data.get("features"),
             scrape_date=datetime.fromisoformat(data["scrape_date"]),
-            publication_date=datetime.fromisoformat(data["publication_date"]) if data.get("publication_date") else None,
+            publication_date=datetime.fromisoformat(data["publication_date"])
+            if data.get("publication_date")
+            else None,
             id=data.get("id"),
             raw_html_file=data.get("raw_html_file"),
             agency_listing_id=data.get("agency_listing_id"),
-            modify_date=datetime.fromisoformat(data["modify_date"]) if data.get("modify_date") else None,
-            creation_date=datetime.fromisoformat(data["creation_date"]) if data.get("creation_date") and isinstance(data["creation_date"], str) else datetime.now(),
-            last_verified_date=datetime.fromisoformat(data["last_verified_date"]) if data.get("last_verified_date") and isinstance(data["last_verified_date"], str)  else None,
-            is_broken=data.get("is_broken", False)
+            modify_date=datetime.fromisoformat(data["modify_date"])
+            if data.get("modify_date")
+            else None,
+            creation_date=datetime.fromisoformat(data["creation_date"])
+            if data.get("creation_date") and isinstance(data["creation_date"], str)
+            else datetime.now(),
+            last_verified_date=datetime.fromisoformat(data["last_verified_date"])
+            if data.get("last_verified_date")
+            and isinstance(data["last_verified_date"], str)
+            else None,
+            is_broken=data.get("is_broken", False),
         )
 
     def get_agency_name(self, db_manager) -> str:
         """Get agency name from agency_id using database manager."""
-        if hasattr(db_manager, 'get_agency_by_id'):
+        if hasattr(db_manager, "get_agency_by_id"):
             agency = db_manager.get_agency_by_id(self.agency_id)
             return agency.name if agency else "Unknown Agency"
         return "Unknown Agency"
@@ -187,12 +251,14 @@ class Listing:
         """Clean and convert price string to float."""
         if not price_str:
             return 0.0
-        
+
         # Remove currency symbols and thousands separators
-        price_str = price_str.replace("€", "").replace(".", "").replace(",", ".").strip()
-        
+        price_str = (
+            price_str.replace("€", "").replace(".", "").replace(",", ".").strip()
+        )
+
         # Extract numbers only
-        numbers = re.findall(r'\d+\.?\d*', price_str)
+        numbers = re.findall(r"\d+\.?\d*", price_str)
         if numbers:
             return float(numbers[0])
         return 0.0
@@ -201,9 +267,9 @@ class Listing:
         """Clean and convert square meters string to integer."""
         if not mq_str:
             return None
-        
+
         # Extract numbers only
-        numbers = re.findall(r'\d+', mq_str)
+        numbers = re.findall(r"\d+", mq_str)
         if numbers:
             return int(numbers[0])
         return None

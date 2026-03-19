@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from dataclasses import dataclass
 
-from models import Listing
+from models import Listing, Configuration, ConfigType
 from config import DB_FILE
 
 
@@ -174,6 +174,9 @@ class DatabaseManager:
 
                 # Initialize notification tables
                 self._ensure_notification_tables_exist()
+
+                # Initialize configurations table
+                self._ensure_configurations_table()
 
                 conn.commit()
 
@@ -1334,6 +1337,230 @@ class DatabaseManager:
         except sqlite3.Error as e:
             self.logger.error(f"Error ensuring notification tables exist: {e}")
             raise
+
+    def _ensure_configurations_table(self) -> None:
+        """Ensure configurations table exists and has default values."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS configurations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        config_key TEXT NOT NULL UNIQUE,
+                        config_type TEXT NOT NULL CHECK(config_type IN ('string', 'integer', 'boolean', 'json')),
+                        config_value TEXT NOT NULL,
+                        description TEXT,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    )
+                """)
+
+                # Insert default configurations if they don't exist
+                defaults = [
+                    (
+                        "notification_enabled",
+                        "boolean",
+                        "true",
+                        "Whether notifications are enabled globally",
+                    ),
+                    (
+                        "notification_template",
+                        "string",
+                        self._get_default_notification_template(),
+                        "Default notification message template",
+                    ),
+                ]
+
+                for key, type_, value, desc in defaults:
+                    cursor.execute(
+                        """
+                        INSERT OR IGNORE INTO configurations 
+                        (config_key, config_type, config_value, description, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            key,
+                            type_,
+                            value,
+                            desc,
+                            datetime.now().isoformat(),
+                            datetime.now().isoformat(),
+                        ),
+                    )
+
+                conn.commit()
+                self.logger.info("Ensured configurations table exists with defaults")
+
+        except sqlite3.Error as e:
+            self.logger.error(f"Error ensuring configurations table: {e}")
+            raise
+
+    def _get_default_notification_template(self) -> str:
+        """Get the default notification template as plain string."""
+        return (
+            "🏠 *New Property Alert* 🏠\n\n"
+            "🔔 *Subscription*: {subscription_name}\n\n"
+            "📍 *{title}*\n"
+            "🏢 *Agency*: {agency}\n"
+            "💰 *Price*: €{price}\n"
+            "📏 *Size*: {size} m²\n"
+            "📍 *Location*: {location}\n"
+            "🔗 *Details*: {url}\n"
+            "📝 *Description*: {description}"
+        )
+
+    def save_config(self, config: Configuration) -> int:
+        """Save a configuration to the database."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+
+                # Check if config already exists
+                cursor.execute(
+                    "SELECT id FROM configurations WHERE config_key = ?",
+                    (config.config_key,),
+                )
+                existing = cursor.fetchone()
+
+                if existing:
+                    # Update existing
+                    cursor.execute(
+                        """
+                        UPDATE configurations SET 
+                            config_type = ?,
+                            config_value = ?,
+                            description = ?,
+                            is_active = ?,
+                            updated_at = ?
+                        WHERE config_key = ?
+                    """,
+                        (
+                            config.config_type.value,
+                            config.config_value,
+                            config.description,
+                            config.is_active,
+                            now,
+                            config.config_key,
+                        ),
+                    )
+                    conn.commit()
+                    self.logger.info(f"Updated configuration: {config.config_key}")
+                    return existing[0]
+                else:
+                    # Insert new
+                    cursor.execute(
+                        """
+                        INSERT INTO configurations 
+                        (config_key, config_type, config_value, description, is_active, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            config.config_key,
+                            config.config_type.value,
+                            config.config_value,
+                            config.description,
+                            config.is_active,
+                            now,
+                            now,
+                        ),
+                    )
+                    conn.commit()
+                    config_id = cursor.lastrowid or -1
+                    self.logger.info(f"Inserted new configuration: {config.config_key}")
+                    return config_id
+
+        except sqlite3.Error as e:
+            self.logger.error(f"Error saving configuration {config.config_key}: {e}")
+            return -1
+
+    def get_config(self, config_key: str) -> Optional[Configuration]:
+        """Get a configuration by key."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT id, config_key, config_type, config_value, description, is_active, created_at, updated_at
+                    FROM configurations 
+                    WHERE config_key = ?
+                """,
+                    (config_key,),
+                )
+                row = cursor.fetchone()
+
+                if row:
+                    return Configuration(
+                        id=row[0],
+                        config_key=row[1],
+                        config_type=ConfigType(row[2]),
+                        config_value=row[3],
+                        description=row[4],
+                        is_active=bool(row[5]),
+                        created_at=row[6],
+                        updated_at=row[7],
+                    )
+                return None
+
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting configuration {config_key}: {e}")
+            return None
+
+    def get_all_configs(self) -> List[Configuration]:
+        """Get all configurations."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT id, config_key, config_type, config_value, description, is_active, created_at, updated_at
+                    FROM configurations 
+                    ORDER BY config_key
+                """
+                )
+                rows = cursor.fetchall()
+
+                configs = []
+                for row in rows:
+                    configs.append(
+                        Configuration(
+                            id=row[0],
+                            config_key=row[1],
+                            config_type=ConfigType(row[2]),
+                            config_value=row[3],
+                            description=row[4],
+                            is_active=bool(row[5]),
+                            created_at=row[6],
+                            updated_at=row[7],
+                        )
+                    )
+                return configs
+
+        except sqlite3.Error as e:
+            self.logger.error(f"Error getting all configurations: {e}")
+            return []
+
+    def delete_config(self, config_key: str) -> bool:
+        """Delete a configuration by key."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM configurations WHERE config_key = ?",
+                    (config_key,),
+                )
+                conn.commit()
+
+                if cursor.rowcount > 0:
+                    self.logger.info(f"Deleted configuration: {config_key}")
+                    return True
+                return False
+
+        except sqlite3.Error as e:
+            self.logger.error(f"Error deleting configuration {config_key}: {e}")
+            return False
 
     def save_telegram_config(self, config: TelegramConfiguration) -> int:
         """Save Telegram configuration to database.
