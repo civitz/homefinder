@@ -548,6 +548,27 @@ def admin_config_save():
     return redirect(url_for("main.admin_configurations"))
 
 
+@main_bp.route("/admin/configurations/edit/<key>")
+def admin_config_edit(key: str):
+    """Fetch configuration details via AJAX."""
+    try:
+        from database import DatabaseManager
+
+        db_manager = DatabaseManager()
+        config = db_manager.get_config(key)
+
+        if config:
+            return {
+                "success": True,
+                "config_value": config.config_value,
+                "description": config.description or "",
+            }
+        else:
+            return {"success": False, "message": "Configuration not found"}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
 @main_bp.route("/admin/configurations/delete/<key>", methods=["POST"])
 def admin_config_delete(key: str):
     """Delete configuration."""

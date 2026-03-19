@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}HomeFinder - Configuration Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="display-4 mb-4">Configuration Management</h1>
+        <p class="lead">Manage application settings and notification templates.</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">Application Configurations</h5>
+            </div>
+            <div class="card-body">
+                {% if configs %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Type</th>
+                                <th>Value</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for config in configs %}
+                            <tr>
+                                <td><code>{{ config.config_key }}</code></td>
+                                <td><span class="badge bg-secondary">{{ config.config_type.value }}</span></td>
+                                <td>
+                                    <small>
+                                        {% if config.config_key == 'notification_template' %}
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="editConfig('{{ config.config_key }}', '{{ config.config_type.value }}', {{ config.config_value|tojson }}, {{ config.description|tojson if config.description else 'None' }})">
+                                            Edit Template
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary ms-1"
+                                                onclick="resetTemplate('{{ config.config_key }}')">
+                                            Reset
+                                        </button>
+                                        {% elif config.config_type.value == 'json' %}
+                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                onclick="showJsonValue('{{ config.config_key }}', {{ config.config_value }})">
+                                            View JSON
+                                        </button>
+                                        {% else %}
+                                        {{ config.config_value[:50] }}{% if config.config_value|length > 50 %}...{% endif %}
+                                        {% endif %}
+                                    </small>
+                                </td>
+                                <td>{{ config.description or '-' }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if config.is_active else 'secondary' }}">
+                                        {{ "Active" if config.is_active else "Inactive" }}
+                                    </span>
+                                </td>
+                                <td>
+<button class="btn btn-sm btn-outline-primary" 
+                                             onclick="editConfig('{{ config.config_key }}', '{{ config.config_type.value }}')">
+                                        Edit
+                                    </button>
+                                    {% if config.config_key not in ['notification_enabled', 'notification_template'] %}
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            onclick="deleteConfig('{{ config.config_key }}')">
+                                        Delete
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No configurations found.</p>
+                {% endif %}
+                
+                <button class="btn btn-primary mt-3" onclick="showAddModal()">
+                    <i class="bi bi-plus-circle"></i> Add Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="configModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="configModalTitle">Add Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('main.admin_config_save') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="config_key" class="form-label">Configuration Key</label>
+                        <input type="text" class="form-control" id="config_key" name="config_key" required>
+                        <div class="form-text">Unique key for this configuration (e.g., notification_template)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config_type" class="form-label">Type</label>
+                        <select class="form-select" id="config_type" name="config_type" onchange="toggleValueField()">
+                            <option value="string">String</option>
+                            <option value="integer">Integer</option>
+                            <option value="boolean">Boolean</option>
+                            <option value="json">JSON</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="config_value" class="form-label">Value</label>
+                        <textarea class="form-control" id="config_value" name="config_value" rows="5" required></textarea>
+                        <div class="form-text" id="valueHelp">Enter the configuration value</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="description" name="description">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Configuration</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- JSON Viewer Modal -->
+<div class="modal fade" id="jsonModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="jsonModalTitle">JSON Value</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="jsonContent" class="bg-light p-3"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+let isEditing = false;
+
+function showAddModal() {
+    isEditing = false;
+    document.getElementById('configModalTitle').textContent = 'Add Configuration';
+    document.getElementById('config_key').disabled = false;
+    document.getElementById('config_key').value = '';
+    document.getElementById('config_type').value = 'string';
+    document.getElementById('config_value').value = '';
+    document.getElementById('description').value = '';
+    toggleValueField();
+    new bootstrap.Modal(document.getElementById('configModal')).show();
+}
+
+function editConfig(key, type) {
+    isEditing = true;
+    // Fetch the configuration details via AJAX
+    fetch('/admin/configurations/edit/' + key)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('configModalTitle').textContent = 'Edit Configuration';
+                document.getElementById('config_key').value = key;
+                document.getElementById('config_key').disabled = true;
+                document.getElementById('config_type').value = type;
+                document.getElementById('config_value').value = data.config_value || '';
+                document.getElementById('description').value = data.description || '';
+                toggleValueField();
+                new bootstrap.Modal(document.getElementById('configModal')).show();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+}
+
+function toggleValueField() {
+    const type = document.getElementById('config_type').value;
+    const help = document.getElementById('valueHelp');
+    const valueField = document.getElementById('config_value');
+    
+    if (type === 'json') {
+        valueField.setAttribute('rows', '10');
+        help.textContent = 'Enter valid JSON';
+    } else if (type === 'boolean') {
+        valueField.setAttribute('rows', '1');
+        valueField.value = 'true';
+        help.textContent = 'Enter true or false';
+    } else if (type === 'integer') {
+        valueField.setAttribute('rows', '1');
+        help.textContent = 'Enter a number';
+    } else {
+        valueField.setAttribute('rows', '3');
+        help.textContent = 'Enter the configuration value';
+    }
+}
+
+function showJsonValue(key, jsonStr) {
+    document.getElementById('jsonModalTitle').textContent = 'JSON Value: ' + key;
+    document.getElementById('jsonContent').textContent = JSON.stringify(JSON.parse(jsonStr), null, 2);
+    new bootstrap.Modal(document.getElementById('jsonModal')).show();
+}
+
+function resetTemplate(key) {
+    if (confirm('Reset template to default? This will overwrite your current template.')) {
+        fetch('/admin/telegram/template/reset', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload page to show updated value
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error);
+            });
+    }
+}
+
+function deleteConfig(key) {
+    if (confirm('Are you sure you want to delete configuration: ' + key + '?')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/configurations/delete/' + key;
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'confirm';
+        input.value = 'true';
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}
