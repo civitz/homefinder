@@ -476,71 +476,61 @@ class NotificationEngine:
 
         self.logger.info("Periodic notification check service stopped")
 
+    def _format_notification_message(
+        self, listing: Listing, subscription_name: str = ""
+    ) -> str:
+        """Format a notification message for a listing using configurable template."""
+        try:
+            template = self._get_notification_template()
+            if not template:
+                template = self._get_default_template()
 
-def _format_notification_message(
-    self, listing: Listing, subscription_name: str = ""
-) -> str:
-    """Format a notification message for a listing using configurable template."""
-    try:
-        # Get template from configuration (returns string)
-        template = self._get_notification_template()
-        if not template:
-            template = self._get_default_template()
+            agency_name = listing.get_agency_name(self.db_manager)
 
-        # Get agency name
-        agency_name = listing.get_agency_name(self.db_manager)
+            internal_url = f"http://localhost:5000/properties/{listing.id}"
 
-        # Get internal URL (property detail page in HomeFinder)
-        internal_url = f"http://localhost:5000/properties/{listing.id}"
+            location = listing.city
+            if listing.neighborhood:
+                location += f", {listing.neighborhood}"
 
-        # Build location string
-        location = listing.city
-        if listing.neighborhood:
-            location += f", {listing.neighborhood}"
+            description = ""
+            if listing.description:
+                description = listing.description[:100]
+                if len(listing.description) > 100:
+                    description += "..."
 
-        # Build description (truncated)
-        description = ""
-        if listing.description:
-            description = listing.description[:100]
-            if len(listing.description) > 100:
-                description += "..."
+            placeholders = {
+                "title": listing.title,
+                "agency": agency_name,
+                "price": f"{listing.price:,.0f}",
+                "size": str(listing.square_meters) if listing.square_meters else "N/A",
+                "location": location,
+                "url": listing.url,
+                "subscription_name": subscription_name,
+                "description": description,
+                "internal_url": internal_url,
+            }
 
-        # Prepare placeholder values (hardcoded)
-        placeholders = {
-            "title": listing.title,
-            "agency": agency_name,
-            "price": f"{listing.price:,.0f}",
-            "size": str(listing.square_meters) if listing.square_meters else "N/A",
-            "location": location,
-            "url": listing.url,
-            "subscription_name": subscription_name,
-            "description": description,
-            "internal_url": internal_url,
-        }
+            message = template
+            for key, value in placeholders.items():
+                placeholder = "{" + key + "}"
+                message = message.replace(placeholder, str(value))
 
-        # Replace placeholders in template
-        message = template
-        for key, value in placeholders.items():
-            placeholder = "{" + key + "}"
-            message = message.replace(placeholder, str(value))
+            return message
 
-        return message
-
-    except Exception as e:
-        self.logger.error(f"Error formatting notification message: {e}")
-        # Fallback to default format
-        return self._get_default_message(listing, subscription_name)
+        except Exception as e:
+            self.logger.error(f"Error formatting notification message: {e}")
+            return self._get_default_message(listing, subscription_name)
 
     def _get_notification_template(self) -> str:
         """Get notification template from configuration as string."""
-
-    try:
-        config = self.db_manager.get_config("notification_template")
-        if config:
-            return config.config_value
-    except Exception as e:
-        self.logger.warning(f"Could not get notification template: {e}")
-    return ""
+        try:
+            config = self.db_manager.get_config("notification_template")
+            if config:
+                return config.config_value
+        except Exception as e:
+            self.logger.warning(f"Could not get notification template: {e}")
+        return ""
 
     def _get_default_template(self) -> str:
         """Get hardcoded default template as fallback."""

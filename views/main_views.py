@@ -599,6 +599,52 @@ def admin_config_delete(key: str):
     return redirect(url_for("main.admin_configurations"))
 
 
+@main_bp.route("/admin/logs")
+def admin_logs():
+    """Admin logs viewing page."""
+    from database import DatabaseManager
+    from datetime import datetime, timedelta
+
+    db_manager = DatabaseManager()
+
+    # Parse date filters from query params
+    end_date = request.args.get("end_date", datetime.now().isoformat())
+    start_date = request.args.get(
+        "start_date", (datetime.now() - timedelta(days=1)).isoformat()
+    )
+    level = request.args.get("level")
+    source = request.args.get("source")
+    search = request.args.get("search")
+    limit = int(request.args.get("limit", 100))
+
+    logs = db_manager.get_log_entries(
+        limit=limit,
+        start_date=start_date,
+        end_date=end_date,
+        level=level,
+        source=source,
+        search=search,
+    )
+
+    # Get unique sources for dropdown
+    cursor = db_manager._get_connection().cursor()
+    cursor.execute("SELECT DISTINCT source FROM application_logs ORDER BY source")
+    sources = [row[0] for row in cursor.fetchall()]
+
+    return render_template(
+        "admin_logs.html",
+        logs=logs,
+        start_date=start_date,
+        end_date=end_date,
+        level=level,
+        source=source,
+        search=search,
+        sources=sources,
+        levels=["DEBUG", "INFO", "WARNING", "ERROR"],
+        total_count=len(logs),
+    )
+
+
 @main_bp.route("/admin/configurations/reset-template", methods=["POST"])
 def admin_config_reset_template():
     """Reset notification template to default."""

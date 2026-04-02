@@ -10,8 +10,8 @@ from atomicx import AtomicBool
 from datetime import datetime
 
 # Add project root to Python path
-#project_root = Path(__file__).parent
-#sys.path.insert(0, str(project_root))
+# project_root = Path(__file__).parent
+# sys.path.insert(0, str(project_root))
 
 from app import create_app
 from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR, DEBUG, DRYRUN
@@ -21,58 +21,78 @@ from background_scraper import BackgroundScraper
 from background_scraper import set_background_scraper
 from broken_link_cleaner import BrokenLinkCleaner
 from notification_service import NotificationEngine, TelegramService
+from log_handler import DatabaseLogHandler
 from config import MIN_SCRAPE_INTERVAL_SECONDS
 
 # Global poison pill for graceful shutdown
 stop_at_next = AtomicBool(False)
 
+
+def cleanup_old_logs(db_manager: DatabaseManager) -> None:
+    """Clean up log entries older than 1 day."""
+    deleted = db_manager.cleanup_old_logs()
+    logging.info(f"Cleaned up {deleted} old log entries")
+
+
 def main(args=None):
     """Main application entry point."""
     if args is None:
         args = parse_arguments()
-    logging.basicConfig(
-        level=logging.DEBUG if DEBUG else logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(LOG_FILE),
-            logging.StreamHandler()
-        ]
-    )
-     
-    logger = logging.getLogger(__name__)
-    logger.info("Starting HomeFinder application...")
-     
+
+    background_scraper = None
+    broken_link_cleaner = None
+
     try:
         # Initialize components
         db_manager = DatabaseManager()
         db_manager.initialize_database()
-        
+
         # Determine request delay
-        request_delay_ms = args.request_delay if args.request_delay is not None else None
-        
+        request_delay_ms = (
+            args.request_delay if args.request_delay is not None else None
+        )
+
+        # Configure logging with database handler
+        log_handler = DatabaseLogHandler(db_manager, level=logging.DEBUG)
+        log_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
+        logging.root.addHandler(log_handler)
+
+        # Set logging level
+        logging.basicConfig(
+            level=logging.DEBUG if DEBUG else logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()],
+        )
+
+        logger = logging.getLogger(__name__)
+        logger.info("Starting HomeFinder application...")
+
         scrapers = [
-            TettorossoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next),
-            GalileoScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next)
-            #FakeScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next),
-            #FakeScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next)
+            TettorossoScraper(
+                request_delay_ms=request_delay_ms,
+                stop_signal=stop_at_next,
+            ),
+            GalileoScraper(
+                request_delay_ms=request_delay_ms,
+                stop_signal=stop_at_next,
+            ),
+            # FakeScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next),
+            # FakeScraper(request_delay_ms=request_delay_ms, stop_signal=stop_at_next)
         ]
-        
-         # Initialize background scraper
+
+        # Initialize background scraper
         # Always create a background scraper instance for API access, even if background scraping is disabled
         background_scraper = BackgroundScraper(
-            request_delay_ms=request_delay_ms,
-            scrapers=scrapers,
-            database=db_manager
+            request_delay_ms=request_delay_ms, scrapers=scrapers, database=db_manager
         )
 
         # Set global instance for manual triggering (API access)
         set_background_scraper(background_scraper)
 
         # Initialize broken link cleaner
-        broken_link_cleaner = BrokenLinkCleaner(
-            stop_signal=stop_at_next,
-            database=db_manager
-        )
+        broken_link_cleaner = BrokenLinkCleaner(stop_signal=stop_at_next)
 
         if args.no_background:
             logger.info("Background scraping disabled (but instance available for API)")
@@ -91,36 +111,39 @@ def main(args=None):
         # Initialize notification service
         telegram_service = TelegramService(db_manager, dry_run=DRYRUN)
         notification_engine = NotificationEngine(db_manager, telegram_service)
-        
+
         if args.no_notifications:
             logger.info("Notification service disabled")
         else:
             # Start notification service in background
             import threading
+
             notification_thread = threading.Thread(
                 target=notification_engine.run_periodic_check,
                 args=(stop_at_next,),
                 daemon=True,
-                name="NotificationService"
+                name="NotificationService",
             )
             notification_thread.start()
             logger.info("Notification service enabled")
 
-         # Create necessary directories
+        # Create necessary directories
         DOWNLOAD_DIR.mkdir(exist_ok=True)
-        
+
         if args.no_background:
             logger.info("Running single live scraping pass...")
             # Check if we should run scraping based on last scrape time
             last_scrape_time = db_manager.get_last_scrape_time()
-            
+
             should_scrape = True
             if last_scrape_time:
                 time_since_last = (datetime.now() - last_scrape_time).total_seconds()
                 if time_since_last < MIN_SCRAPE_INTERVAL_SECONDS:
                     should_scrape = False
-                    logger.info(f"Skipping initial scrape - last scrape was {time_since_last:.1f}s ago (interval: {MIN_SCRAPE_INTERVAL_SECONDS}s)")
-            
+                    logger.info(
+                        f"Skipping initial scrape - last scrape was {time_since_last:.1f}s ago (interval: {MIN_SCRAPE_INTERVAL_SECONDS}s)"
+                    )
+
             if should_scrape:
                 # Run a single scraping pass
                 for scraper in scrapers:
@@ -128,73 +151,90 @@ def main(args=None):
                         listings = scraper.scrape_live_listings()
                         if listings:
                             saved_count = db_manager.save_listings(listings)
-                            logger.info(f"Successfully scraped and saved {saved_count} listings from {scraper.name}")
+                            logger.info(
+                                f"Successfully scraped and saved {saved_count} listings from {scraper.name}",
+                                extra={"scraper": scraper.name, "count": saved_count},
+                            )
+                        else:
+                            logger.warning(
+                                f"No listings scraped from {scraper.name}",
+                                extra={"scraper": scraper.name},
+                            )
                     except Exception as e:
-                        logger.error(f"Error in initial scraping for {scraper.name}: {e}")
+                        logger.error(
+                            f"Error in initial scraping for {scraper.name}: {e}",
+                            extra={"scraper": scraper.name, "error": str(e)},
+                        )
             else:
-                logger.info("Skipping initial scraping - recent scrape already exists")
-        
+                logger.info(
+                    "Skipping initial scraping - recent scrape already exists",
+                    extra={"reason": "recent scrape already exists"},
+                )
+
+        # Cleanup old logs (keep only 24 hours)
+        cleanup_old_logs(db_manager)
+
         # Start Flask application first (non-blocking in debug mode)
         logger.info("Starting Flask web server...")
-        create_app().run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
-        
+        create_app().run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+
     except KeyboardInterrupt:
         stop_at_next.store(True)  # Set poison pill for graceful shutdown
-        logger.info("Ctrl-C detected, setting poison pill for graceful shutdown")
-        logger.info("Shutting down HomeFinder application...")
+        logging.info("Ctrl-C detected, setting poison pill for graceful shutdown")
+        logging.info("Shutting down HomeFinder application...")
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logging.error(f"Fatal error: {e}")
         stop_at_next.store(True)
         sys.exit(1)
     finally:
-         # Cleanup on exit
-         # Only stop background scraper if it was actually running
-         if background_scraper and not args.no_background:
-             stop_at_next.store(True)
-             background_scraper.stop()
+        # Cleanup on exit
+        # Only stop background scraper if it was actually running
+        if background_scraper is not None and not args.no_background:
+            stop_at_next.store(True)
+            background_scraper.stop()
 
-         # Only stop broken link cleaner if it was actually running
-         if 'broken_link_cleaner' in locals() and not args.no_broken_link_cleanup:
-             stop_at_next.store(True)
-             broken_link_cleaner.stop()
+        # Only stop broken link cleaner if it was actually running
+        if broken_link_cleaner is not None and not args.no_broken_link_cleanup:
+            stop_at_next.store(True)
+            broken_link_cleaner.stop()
 
 
 def parse_arguments(argv=None):
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='HomeFinder - Real Estate Scraper and Search Tool')
-    parser.add_argument(
-        '--use-examples',
-        action='store_true',
-        help='Use example files instead of live scraping'
+    parser = argparse.ArgumentParser(
+        description="HomeFinder - Real Estate Scraper and Search Tool"
     )
     parser.add_argument(
-        '--no-background',
-        action='store_true',
-        help='Disable background scraping (live scraping only runs once at startup)'
+        "--use-examples",
+        action="store_true",
+        help="Use example files instead of live scraping",
     )
     parser.add_argument(
-        '--scrape-interval',
+        "--no-background",
+        action="store_true",
+        help="Disable background scraping (live scraping only runs once at startup)",
+    )
+    parser.add_argument(
+        "--scrape-interval",
         type=int,
         default=1,
-        help='Background scraping interval in hours (default: 1)'
+        help="Background scraping interval in hours (default: 1)",
     )
     parser.add_argument(
-         '--request-delay',
-         type=int,
-         default=None,
-         help='Delay between HTTP requests in milliseconds (default: from config)'
+        "--request-delay",
+        type=int,
+        default=None,
+        help="Delay between HTTP requests in milliseconds (default: from config)",
     )
     parser.add_argument(
-        '--no-broken-link-cleanup',
-        action='store_true',
-        help='Disable broken link cleanup service'
+        "--no-broken-link-cleanup",
+        action="store_true",
+        help="Disable broken link cleanup service",
     )
     parser.add_argument(
-        '--no-notifications',
-        action='store_true',
-        help='Disable notification service'
+        "--no-notifications", action="store_true", help="Disable notification service"
     )
-    
+
     if argv is None:
         return parser.parse_args()
     else:

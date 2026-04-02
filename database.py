@@ -4,6 +4,7 @@ from pathlib import Path
 import logging
 from datetime import datetime
 from dataclasses import dataclass
+import json
 
 from models import Listing, Configuration, ConfigType
 from config import DB_FILE
@@ -171,6 +172,30 @@ class DatabaseManager:
                         duration_seconds REAL
                     )
                 """)
+
+                # Create application_logs table for detailed logging
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS application_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TEXT NOT NULL,
+                        level TEXT NOT NULL CHECK(level IN ('DEBUG', 'INFO', 'WARNING', 'ERROR')),
+                        source TEXT NOT NULL,
+                        message TEXT NOT NULL,
+                        details TEXT,
+                        created_at TEXT NOT NULL
+                    )
+                """)
+
+                # Create indexes for log queries
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON application_logs(timestamp)"
+                )
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_logs_level ON application_logs(level)"
+                )
+                cursor.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_logs_source ON application_logs(source)"
+                )
 
                 # Initialize notification tables
                 self._ensure_notification_tables_exist()
@@ -1146,6 +1171,138 @@ class DatabaseManager:
 
         except sqlite3.Error as e:
             self.logger.error(f"Error cleaning up scrape history: {e}")
+
+    def cleanup_old_logs(self) -> int:
+        """Delete log entries older than 1 day. Returns count of deleted entries."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cutoff_time = datetime.now().isoformat()
+
+                cursor.execute("""
+                    DELETE FROM application_logs
+                    WHERE timestamp < datetime('now', '-1 day')
+                """)
+
+                deleted_count = cursor.rowcount
+                conn.commit()
+
+                self.logger.info(
+                    f"Cleaned up old logs: deleted {deleted_count} entries"
+                )
+                return deleted_count
+
+        except sqlite3.Error as e:
+            self.logger.error(f"Error cleaning up old logs: {e}")
+            return 0
+
+    def add_log(
+        self,
+        level: str,
+        source: str,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Add a log entry to the database.
+
+        Args:
+            level: Log level (DEBUG, INFO, WARNING, ERROR)
+            source: Module/component name
+            message: Human-readable log message
+            details: Optional dictionary with additional context (JSON serialized)
+        """
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                details_json = json.dumps(details) if details else None
+
+                cursor.execute(
+                    """
+                    INSERT INTO application_logs 
+                    (timestamp, level, source, message, details, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        datetime.now().isoformat(),
+                        level,
+                        source,
+                        message,
+                        details_json,
+                        datetime.now().isoformat(),
+                    ),
+                )
+                conn.commit()
+        except sqlite3.Error as e:
+            self.logger.error(f"Error adding log entry: {e}")
+
+    def get_log_entries(
+        self,
+        limit: int = 100,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        level: Optional[str] = None,
+        source: Optional[str] = None,
+        search: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get log entries with filtering options.
+
+        Args:
+            limit: Maximum number of entries to return
+            start_date: ISO format start date (inclusive)
+            end_date: ISO format end date (inclusive)
+            level: Filter by log level
+            source: Filter by source
+            search: Search text to filter messages
+
+        Returns:
+            List of log entries as dictionaries
+        """
+        try:
+            query = "SELECT * FROM application_logs WHERE 1=1"
+            params = []
+
+            if start_date:
+                query += " AND timestamp >= ?"
+                params.append(start_date)
+            if end_date:
+                query += " AND timestamp <= ?"
+                params.append(end_date)
+            if level:
+                query += " AND level = ?"
+                params.append(level)
+            if source:
+                query += " AND source = ?"
+                params.append(source)
+            if search:
+                query += " AND message LIKE ?"
+                params.append(f"%{search}%")
+
+            query += " ORDER BY timestamp DESC LIMIT ?"
+            params.append(limit)
+
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+
+                logs = []
+                for row in rows:
+                    logs.append(
+                        {
+                            "id": row[0],
+                            "timestamp": row[1],
+                            "level": row[2],
+                            "source": row[3],
+                            "message": row[4],
+                            "details": json.loads(row[5]) if row[5] else None,
+                            "created_at": row[6],
+                        }
+                    )
+                return logs
+
+        except sqlite3.Error as e:
+            self.logger.error(f"Error fetching log entries: {e}")
+            return []
 
     def log_scrape_run(
         self, source: str, listings_count: int, duration_seconds: float
