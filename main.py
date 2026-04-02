@@ -92,7 +92,9 @@ def main(args=None):
         set_background_scraper(background_scraper)
 
         # Initialize broken link cleaner
-        broken_link_cleaner = BrokenLinkCleaner(stop_signal=stop_at_next)
+        broken_link_cleaner = BrokenLinkCleaner(
+            stop_signal=stop_at_next, database=db_manager
+        )
 
         if args.no_background:
             logger.info("Background scraping disabled (but instance available for API)")
