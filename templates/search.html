@@ -150,17 +150,37 @@
                              </select>
                          </div>
                          
-                         <!-- Action Buttons -->
-                         <div class="col-md-4 d-flex align-items-end justify-content-end">
-                             <div class="me-2">
-                                 <button type="reset" class="btn btn-outline-secondary btn-sm">Reset</button>
-                             </div>
-                             <div>
-                                 <button type="submit" class="btn btn-primary">
-                                     <i class="bi bi-search"></i> Search
-                                 </button>
-                             </div>
-                         </div>
+                          <!-- Sorting Controls -->
+                          <div class="col-md-2">
+                              <label for="sort_by" class="form-label">Sort By</label>
+                              <select class="form-select" id="sort_by" name="sort_by">
+                                  <option value="scrape_date" {% if search_params.sort_by == 'scrape_date' %}selected{% endif %}>Date Added</option>
+                                  <option value="price" {% if search_params.sort_by == 'price' %}selected{% endif %}>Price</option>
+                                  <option value="square_meters" {% if search_params.sort_by == 'square_meters' %}selected{% endif %}>Size</option>
+                                  <option value="energy_class" {% if search_params.sort_by == 'energy_class' %}selected{% endif %}>Energy Class</option>
+                                  <option value="year_built" {% if search_params.sort_by == 'year_built' %}selected{% endif %}>Year Built</option>
+                              </select>
+                          </div>
+
+                          <div class="col-md-2">
+                              <label for="sort_order" class="form-label">Order</label>
+                              <select class="form-select" id="sort_order" name="sort_order">
+                                  <option value="asc" {% if search_params.sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+                                  <option value="desc" {% if search_params.sort_order == 'desc' %}selected{% endif %}>Descending</option>
+                              </select>
+                          </div>
+
+                          <!-- Action Buttons -->
+                          <div class="col-md-2 d-flex align-items-end justify-content-end">
+                              <div class="me-2">
+                                  <button type="reset" class="btn btn-outline-secondary btn-sm">Reset</button>
+                              </div>
+                              <div>
+                                  <button type="submit" class="btn btn-primary">
+                                      <i class="bi bi-search"></i> Search
+                                  </button>
+                              </div>
+                          </div>
                      </div>
                  </form>
             </div>
@@ -347,10 +367,19 @@
       });
       toast.show();
       
-      // Remove toast after it's hidden
-      toastElement.on('hidden.bs.toast', function() {
-          toastElement.remove();
-      });
-  }
-  </script>
-  {% endblock %}
+       // Remove toast after it's hidden
+       toastElement.on('hidden.bs.toast', function() {
+           toastElement.remove();
+       });
+   }
+
+   // Sorting functionality
+   $(document).ready(function() {
+       // Handle sorting changes
+       $('#sort_by, #sort_order').change(function() {
+           // Submit the form when sorting changes
+           $('form').submit();
+       });
+   });
+   </script>
+   {% endblock %}

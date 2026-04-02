@@ -748,7 +748,7 @@ class DatabaseManager:
             return None
 
     def search_listings(self, **kwargs) -> List[Listing]:
-        """Search listings with various filters."""
+        """Search listings with various filters and sorting."""
         try:
             query = "SELECT * FROM listings WHERE 1=1"
             params = []
@@ -852,6 +852,41 @@ class DatabaseManager:
             if "min_rooms" in kwargs and kwargs["min_rooms"]:
                 query += " AND (rooms >= ? OR rooms IS NULL)"
                 params.append(kwargs["min_rooms"])
+
+            # Add sorting support
+            sort_by = kwargs.get("sort_by")
+            sort_order = kwargs.get("sort_order", "asc")
+
+            if sort_by:
+                # Validate sort_by parameter to prevent SQL injection
+                valid_sort_fields = [
+                    "scrape_date",
+                    "price",
+                    "square_meters",
+                    "energy_class",
+                    "year_built",
+                ]
+                if sort_by in valid_sort_fields:
+                    # Handle energy_class specially since it needs custom ordering
+                    if sort_by == "energy_class":
+                        query += f" ORDER BY CASE energy_class "
+                        query += "WHEN 'A4' THEN 1 WHEN 'A3' THEN 2 WHEN 'A2' THEN 3 WHEN 'A1' THEN 4 "
+                        query += "WHEN 'A' THEN 5 WHEN 'B' THEN 6 WHEN 'C' THEN 7 WHEN 'D' THEN 8 "
+                        query += "WHEN 'E' THEN 9 WHEN 'F' THEN 10 WHEN 'G' THEN 11 ELSE 12 END"
+                    else:
+                        query += f" ORDER BY {sort_by}"
+
+                    # Add sort order
+                    if sort_order.lower() == "desc":
+                        query += " DESC"
+                    else:
+                        query += " ASC"
+                else:
+                    # Default sorting by scrape_date if invalid field provided
+                    query += " ORDER BY scrape_date DESC"
+            else:
+                # Default sorting by scrape_date if no sort parameter provided
+                query += " ORDER BY scrape_date DESC"
 
             with self._get_connection() as conn:
                 cursor = conn.cursor()
