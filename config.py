@@ -10,7 +10,9 @@ DB_FILE: Final[Path] = BASE_DIR / "properties.db"
 EXAMPLES_DIR: Final[Path] = BASE_DIR / "examples"
 
 # Scraping configuration
-USER_AGENT: Final[str] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+USER_AGENT: Final[str] = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+)
 REQUEST_TIMEOUT: Final[int] = 30
 MAX_RETRIES: Final[int] = 3
 REQUEST_DELAY_MS: Final[int] = 2000  # Delay between requests in milliseconds
@@ -20,12 +22,23 @@ DEBUG: Final[bool] = os.getenv("DEBUG", "false").lower() == "true"
 DRYRUN: Final[bool] = os.getenv("DRYRUN", "false").lower() == "true"
 
 # Scraping interval configuration (in seconds)
-MIN_SCRAPE_INTERVAL_SECONDS: Final[int] = int(os.getenv("MIN_SCRAPE_INTERVAL_SECONDS", "3600"))  # Default: 1 hour
-MAX_SCRAPE_HISTORY_ENTRIES: Final[int] = int(os.getenv("MAX_SCRAPE_HISTORY_ENTRIES", "20"))
+MIN_SCRAPE_INTERVAL_SECONDS: Final[int] = int(
+    os.getenv("MIN_SCRAPE_INTERVAL_SECONDS", "3600")
+)  # Default: 1 hour
+MAX_SCRAPE_HISTORY_ENTRIES: Final[int] = int(
+    os.getenv("MAX_SCRAPE_HISTORY_ENTRIES", "20")
+)
 
 # Broken link cleanup configuration
-BROKEN_LINK_CLEANUP_INTERVAL_HOURS: Final[int] = int(os.getenv("BROKEN_LINK_CLEANUP_INTERVAL_HOURS", "24"))  # Default: 24 hours
-MIN_LISTING_AGE_DAYS: Final[int] = int(os.getenv("MIN_LISTING_AGE_DAYS", "15"))  # Default: 15 days
+BROKEN_LINK_CLEANUP_INTERVAL_HOURS: Final[int] = int(
+    os.getenv("BROKEN_LINK_CLEANUP_INTERVAL_HOURS", "24")
+)  # Default: 24 hours
+MIN_LISTING_AGE_DAYS: Final[int] = int(
+    os.getenv("MIN_LISTING_AGE_DAYS", "15")
+)  # Default: 15 days
+BROKEN_LINK_CHECK_DELAY_SECONDS: Final[int] = int(
+    os.getenv("BROKEN_LINK_CHECK_DELAY_SECONDS", "5")
+)  # Default: 5 seconds
 
 # Flask configuration
 FLASK_SECRET_KEY: Final[str] = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")

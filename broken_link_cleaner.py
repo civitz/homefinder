@@ -10,13 +10,19 @@ import requests
 
 from atomicx import AtomicBool
 from database import DatabaseManager
-from config import BROKEN_LINK_CLEANUP_INTERVAL_HOURS, MIN_LISTING_AGE_DAYS
+from config import (
+    BROKEN_LINK_CLEANUP_INTERVAL_HOURS,
+    MIN_LISTING_AGE_DAYS,
+    BROKEN_LINK_CHECK_DELAY_SECONDS,
+)
 
 
 class BrokenLinkCleaner:
     """Background service for identifying and cleaning up broken property links."""
 
-    def __init__(self, stop_signal: AtomicBool = None, database: DatabaseManager = None):
+    def __init__(
+        self, stop_signal: AtomicBool = None, database: DatabaseManager = None
+    ):
         """Initialize the broken link cleaner.
 
         Args:
@@ -25,6 +31,7 @@ class BrokenLinkCleaner:
         """
         self.interval_hours = BROKEN_LINK_CLEANUP_INTERVAL_HOURS
         self.min_listing_age_days = MIN_LISTING_AGE_DAYS
+        self.check_delay = BROKEN_LINK_CHECK_DELAY_SECONDS
         self.logger = logging.getLogger(__name__)
         self.running = False
         self.thread = None
@@ -53,15 +60,17 @@ class BrokenLinkCleaner:
         try:
             # Use HEAD request to minimize bandwidth
             response = requests.head(url, timeout=10, allow_redirects=True)
-            
+
             # Consider 2xx and 3xx status codes as valid
             if 200 <= response.status_code < 400:
                 return True
-            
+
             # 404, 410, etc. are considered broken
-            self.logger.info(f"Broken link detected: {url} (HTTP {response.status_code})")
+            self.logger.info(
+                f"Broken link detected: {url} (HTTP {response.status_code})"
+            )
             return False
-            
+
         except requests.exceptions.RequestException as e:
             # Any request exception (timeout, connection error, etc.) is considered broken
             self.logger.warning(f"Link verification failed for {url}: {e}")
@@ -80,14 +89,14 @@ class BrokenLinkCleaner:
         try:
             # Get all listings that need verification
             all_listings = self.db_manager.get_all_listings()
-            
+
             if not all_listings:
                 self.logger.info("No listings found for verification")
                 return 0
 
             cleaned_up_count = 0
             verified_count = 0
-            
+
             for listing in all_listings:
                 # Check poison pill
                 if self.stop_signal and self.stop_signal.load():
@@ -97,21 +106,22 @@ class BrokenLinkCleaner:
                 try:
                     # Verify the link
                     is_valid = self._verify_link(listing.url)
-                    
+                    time.sleep(self.check_delay)
+
                     # Update the listing with verification results
-                    update_data = {
-                        'last_verified_date': datetime.now().isoformat()
-                    }
-                    
+                    update_data = {"last_verified_date": datetime.now().isoformat()}
+
                     if not is_valid:
-                        update_data['is_broken'] = True
-                        
+                        update_data["is_broken"] = True
+
                         # Check if listing is old enough to be removed
                         if listing.creation_date:
                             listing_age = datetime.now() - listing.creation_date
                             if listing_age.days >= self.min_listing_age_days:
                                 # Remove the broken listing
-                                self.logger.info(f"Removing broken listing (age {listing_age.days} days): {listing.url}")
+                                self.logger.info(
+                                    f"Removing broken listing (age {listing_age.days} days): {listing.url}"
+                                )
                                 # We'll implement the actual removal in a separate method
                                 cleaned_up_count += 1
                                 continue
@@ -120,22 +130,26 @@ class BrokenLinkCleaner:
                             if listing.scrape_date:
                                 listing_age = datetime.now() - listing.scrape_date
                                 if listing_age.days >= self.min_listing_age_days:
-                                    self.logger.info(f"Removing broken listing (age {listing_age.days} days): {listing.url}")
+                                    self.logger.info(
+                                        f"Removing broken listing (age {listing_age.days} days): {listing.url}"
+                                    )
                                     cleaned_up_count += 1
                                     continue
                     else:
-                        update_data['is_broken'] = False
+                        update_data["is_broken"] = False
                         verified_count += 1
 
                     # Update the listing with verification results
                     self.db_manager.update_listing(listing.id, update_data)
-                    
+
                 except Exception as e:
                     self.logger.error(f"Error verifying listing {listing.url}: {e}")
 
-            self.logger.info(f"Broken link cleanup completed. Verified: {verified_count}, Cleaned up: {cleaned_up_count}")
+            self.logger.info(
+                f"Broken link cleanup completed. Verified: {verified_count}, Cleaned up: {cleaned_up_count}"
+            )
             return cleaned_up_count
-            
+
         except Exception as e:
             self.logger.error(f"Error in broken link cleanup: {e}")
             return 0
@@ -157,22 +171,26 @@ class BrokenLinkCleaner:
                     continue
 
                 start_time = time.time()
-                
+
                 # Run cleanup
                 cleaned_up_count = self._cleanup_broken_links()
-                
+
                 # Calculate sleep time to maintain interval
                 elapsed_time = time.time() - start_time
                 sleep_time = max(0, self.interval_hours * 3600 - elapsed_time)
-                
-                self.logger.info(f"Next broken link cleanup in {sleep_time:.1f} seconds")
+
+                self.logger.info(
+                    f"Next broken link cleanup in {sleep_time:.1f} seconds"
+                )
 
                 # Sleep until next run
                 for _ in range(int(sleep_time)):
                     if not self.running:
                         break
                     if self.stop_signal and self.stop_signal.load():
-                        self.logger.info("Broken link cleanup stopping due to poison pill")
+                        self.logger.info(
+                            "Broken link cleanup stopping due to poison pill"
+                        )
                         self.running = False
                         break
                     time.sleep(1)
@@ -189,7 +207,9 @@ class BrokenLinkCleaner:
             return
 
         self.running = True
-        self.logger.info(f"Starting broken link cleaner with {self.interval_hours} hour interval")
+        self.logger.info(
+            f"Starting broken link cleaner with {self.interval_hours} hour interval"
+        )
 
         # Start the cleanup thread
         self.thread = threading.Thread(target=self._cleanup_loop, daemon=True)
@@ -208,7 +228,9 @@ class BrokenLinkCleaner:
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=5)
             if self.thread.is_alive():
-                self.logger.warning("Broken link cleaner thread did not stop gracefully")
+                self.logger.warning(
+                    "Broken link cleaner thread did not stop gracefully"
+                )
 
     def is_running(self) -> bool:
         """Check if the broken link cleaner is running."""
