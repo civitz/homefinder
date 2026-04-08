@@ -264,9 +264,24 @@ def admin_telegram_test():
                 "message": "Configuration is missing bot token or chat ID.",
             }, 400
 
-        message = request.form.get(
-            "message", "Here is a test notification from HomeFinder"
-        )
+        # Get pattern from request (either form data or JSON)
+        pattern = None
+        if request.form.get("pattern"):
+            pattern = request.form.get("pattern")
+        elif (
+            request.is_json
+            and request.get_json(silent=True)
+            and request.get_json().get("pattern")
+        ):
+            pattern = request.get_json().get("pattern")
+
+        # If pattern is provided, use it with placeholder replacement
+        if pattern:
+            message = _replace_placeholders_in_pattern(pattern)
+        else:
+            message = request.form.get(
+                "message", "Here is a test notification from HomeFinder"
+            )
 
         telegram_service = TelegramService(db_manager, dry_run=False)
 
@@ -293,6 +308,28 @@ def admin_telegram_test():
     except Exception as e:
         current_app.logger.error(f"Error sending test notification: {e}")
         return {"success": False, "message": f"Error: {str(e)}"}, 500
+
+
+def _replace_placeholders_in_pattern(pattern: str) -> str:
+    """Replace placeholders in a pattern with sample data (same as frontend preview)."""
+    sample_data = {
+        "title": "Beautiful Apartment in City Center",
+        "agency": "Tettorosso Immobiliare",
+        "price": "150,000",
+        "size": "85",
+        "location": "Padova, Centro",
+        "url": "https://example.com/property/123",
+        "subscription_name": "My Search",
+        "description": "Spacious 3-room apartment with modern amenities, close to all services.",
+        "internal_url": "http://localhost:5000/properties/123",
+    }
+
+    message = pattern
+    for key, value in sample_data.items():
+        placeholder = "{" + key + "}"
+        message = message.replace(placeholder, str(value))
+
+    return message
 
 
 @main_bp.route("/admin/telegram/template", methods=["POST"])

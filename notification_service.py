@@ -12,6 +12,7 @@ from database import (
     NotificationHistory,
 )
 from models import Listing, Configuration, ConfigType
+from config import FLASK_PORT
 
 
 class TelegramService:
@@ -487,7 +488,7 @@ class NotificationEngine:
 
             agency_name = listing.get_agency_name(self.db_manager)
 
-            internal_url = f"http://localhost:5000/properties/{listing.id}"
+            internal_url = f"{self._get_virtualhost_url()}/properties/{listing.id}"
 
             location = listing.city
             if listing.neighborhood:
@@ -521,6 +522,29 @@ class NotificationEngine:
         except Exception as e:
             self.logger.error(f"Error formatting notification message: {e}")
             return self._get_default_message(listing, subscription_name)
+
+    def _get_virtualhost_url(self) -> str:
+        """Get virtualhost URL for internal links.
+
+        Returns:
+            Full URL string for internal links in notifications
+        """
+        try:
+            config = self.db_manager.get_config("virtualhost")
+            if config and config.config_value:
+                # If virtualhost is configured, use it directly
+                virtualhost = config.config_value.strip()
+                # If it starts with http:// or https://, use as-is
+                if virtualhost.startswith(("http://", "https://")):
+                    return virtualhost
+                else:
+                    # Assume it's hostname:port format, add http://
+                    return f"http://{virtualhost}"
+        except Exception as e:
+            self.logger.warning(f"Could not get virtualhost configuration: {e}")
+
+        # Fallback: use localhost with FLASK_PORT
+        return f"http://localhost:{FLASK_PORT}"
 
     def _get_notification_template(self) -> str:
         """Get notification template from configuration as string."""

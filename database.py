@@ -1563,6 +1563,12 @@ class DatabaseManager:
                         self._get_default_notification_template(),
                         "Default notification message template",
                     ),
+                    (
+                        "virtualhost",
+                        "string",
+                        None,
+                        "Virtualhost for internal URLs in notifications (full URL or hostname:port). If null, uses localhost:FLASK_PORT",
+                    ),
                 ]
 
                 for key, type_, value, desc in defaults:

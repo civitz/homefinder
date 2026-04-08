@@ -358,6 +358,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Test notification from main config section
+    const testNotificationBtn = document.getElementById('testNotificationBtn');
+    if (testNotificationBtn) {
+        testNotificationBtn.addEventListener('click', function() {
+            testDefaultNotification();
+        });
+    }
+    
     // Test notification from template editor
     if (testNotificationBtnTemplate) {
         testNotificationBtnTemplate.addEventListener('click', function() {
@@ -385,16 +393,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function testNotification() {
-        const btn = document.getElementById('testNotificationBtnTemplate');
+    function testDefaultNotification() {
+        const btn = document.getElementById('testNotificationBtn');
         const originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
         
+        // Send request without pattern to use default message
         fetch('/admin/telegram/test', { method: 'POST' })
             .then(response => response.json())
             .then(data => {
-                const alertContainer = document.querySelector('.alert-container-test');
+                const alertContainer = document.querySelector('.alert-container');
                 const alert = document.createElement('div');
                 alert.className = `alert alert-${data.success ? 'success' : 'danger'} alert-dismissible fade show`;
                 alert.innerHTML = `
@@ -411,7 +420,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 5000);
             })
             .catch(error => {
-                const alertContainer = document.querySelector('.alert-container-test');
+                const alertContainer = document.querySelector('.alert-container');
                 const alert = document.createElement('div');
                 alert.className = 'alert alert-danger alert-dismissible fade show';
                 alert.innerHTML = `
@@ -427,6 +436,61 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
             });
+    }
+    
+    function testNotification() {
+        const btn = document.getElementById('testNotificationBtnTemplate');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+        
+        // Get the current template text from the textarea
+        const templateText = document.getElementById('templateText');
+        const pattern = templateText ? templateText.value : '';
+        
+        // Send the pattern to the backend
+        fetch('/admin/telegram/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ pattern: pattern })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const alertContainer = document.querySelector('.alert-container-test');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${data.success ? 'success' : 'danger'} alert-dismissible fade show`;
+            alert.innerHTML = `
+                <strong>${data.success ? 'Success' : 'Error'}:</strong> ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            if (alertContainer) {
+                alertContainer.appendChild(alert);
+            }
+            
+            setTimeout(function() {
+                alert.remove();
+            }, 5000);
+        })
+        .catch(error => {
+            const alertContainer = document.querySelector('.alert-container-test');
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.innerHTML = `
+                <strong>Error:</strong> Failed to send test notification. ${error}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            if (alertContainer) {
+                alertContainer.appendChild(alert);
+            }
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
     }
     
     function showFlashMessage(message, type) {

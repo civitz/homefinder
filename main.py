@@ -14,7 +14,7 @@ from datetime import datetime
 # sys.path.insert(0, str(project_root))
 
 from app import create_app
-from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR, DEBUG, DRYRUN
+from config import DOWNLOAD_DIR, LOG_FILE, EXAMPLES_DIR, DEBUG, DRYRUN, FLASK_PORT
 from scraper import TettorossoScraper, GalileoScraper, FakeScraper
 from database import DatabaseManager
 from background_scraper import BackgroundScraper
@@ -178,7 +178,9 @@ def main(args=None):
 
         # Start Flask application first (non-blocking in debug mode)
         logger.info("Starting Flask web server...")
-        create_app().run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+        create_app().run(
+            host="0.0.0.0", port=FLASK_PORT, debug=True, use_reloader=False
+        )
 
     except KeyboardInterrupt:
         stop_at_next.store(True)  # Set poison pill for graceful shutdown
